@@ -1,6 +1,6 @@
 # FixPro Склад — страница для тестеров
 
-Открыть: https://raw.githack.com/sorvingbel-hue/fixpro-sklad-app/main/index.html
+Открыть: https://sorvingbel-hue.github.io/fixpro-sklad-app/
 
 Сейчас здесь **демо без общей базы**: данные хранятся только в браузере того, кто открыл страницу. Чужие записи не видны, примеры загружаются сами. Сбросить можно ссылкой внизу страницы.
 
