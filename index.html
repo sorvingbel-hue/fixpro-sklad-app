@@ -1,0 +1,2253 @@
+<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="robots" content="noindex, nofollow"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>FixPro Склад — демо</title><style>body{margin:0;padding:0}[hidden]{display:none!important}</style></head><body><script>
+/* FixPro Склад — демо без Claude. Хранилище в этом браузере (localStorage) вместо общей базы Claude.
+   Тот же интерфейс, что у window.claude.use('db'): collection().doc(), doc(path).set/update/delete, onSnapshot. */
+(() => {
+  if (window.claude && typeof window.claude.use === 'function') return;
+  const KEY = 'fixpro-sklad-demo-v1';
+  const SEED = {"items/ex-aa": {"byId": null, "byName": "Пример", "cat": "Батареи", "cell": "F-1", "createdAt": 1792505940000, "min": 8, "name": "Батарейки AA для термостатов", "note": "", "sample": true, "unit": "шт"}, "items/ex-capacitor": {"byId": null, "byName": "Пример", "cat": "Электрика", "cell": "E-3", "createdAt": 1792505580000, "min": 2, "name": "Конденсатор 45/5 µF 440V", "note": "", "sample": true, "unit": "шт"}, "items/ex-collar6": {"byId": null, "byName": "Пример", "cat": "Воздуховоды", "cell": "B-2", "createdAt": 1792504860000, "min": 10, "name": "Стартовый воротник (start collar) 6\"", "note": "", "sample": true, "unit": "шт"}, "items/ex-collar8": {"byId": null, "byName": "Пример", "cat": "Воздуховоды", "cell": "B-2", "createdAt": 1792504920000, "min": 10, "name": "Стартовый воротник (start collar) 8\"", "note": "", "sample": true, "unit": "шт"}, "items/ex-condpump": {"byId": null, "byName": "Пример", "cat": "Оборудование", "cell": "A-1", "createdAt": 1792505820000, "min": 1, "name": "Дренажная помпа (condensate pump)", "note": "", "sample": true, "unit": "шт"}, "items/ex-disconnect": {"byId": null, "byName": "Пример", "cat": "Электрика", "cell": "E-2", "createdAt": 1792505460000, "min": 2, "name": "Рубильник (disconnect) 60A, non-fused", "note": "", "sample": true, "unit": "шт"}, "items/ex-filterbase": {"byId": null, "byName": "Пример", "cat": "Воздуховоды", "cell": "B-1", "createdAt": 1792504800000, "min": 2, "name": "Фильтр-база (filter base) 20×25", "note": "под фильтр 20×25×1", "sample": true, "unit": "шт"}, "items/ex-flex10": {"byId": null, "byName": "Пример", "cat": "Воздуховоды", "cell": "C-2", "createdAt": 1792505100000, "min": 1, "name": "Флекс R8 10\" (25 фут)", "note": "", "sample": true, "unit": "коробка"}, "items/ex-flex12": {"byId": null, "byName": "Пример", "cat": "Воздуховоды", "cell": "C-2", "createdAt": 1792505160000, "min": 1, "name": "Флекс R8 12\" (25 фут)", "note": "", "sample": true, "unit": "коробка"}, "items/ex-flex6": {"byId": null, "byName": "Пример", "cat": "Воздуховоды", "cell": "C-1", "createdAt": 1792504980000, "min": 1, "name": "Флекс R8 6\" (25 фут)", "note": "было две коробки, осталась одна — закупать", "sample": true, "unit": "коробка"}, "items/ex-flex8": {"byId": null, "byName": "Пример", "cat": "Воздуховоды", "cell": "C-1", "createdAt": 1792505040000, "min": 1, "name": "Флекс R8 8\" (25 фут)", "note": "", "sample": true, "unit": "коробка"}, "items/ex-foiltape": {"byId": null, "byName": "Пример", "cat": "Расходники", "cell": "D-1", "createdAt": 1792505220000, "min": 6, "name": "Фольгированный скотч 2.5\" (UL 181)", "note": "рулон", "sample": true, "unit": "шт"}, "items/ex-gaugehose": {"byId": null, "byName": "Пример", "cat": "Extra Tools", "cell": "F-3", "createdAt": 1792506060000, "min": 1, "name": "Запасной шланг для манометров 60\"", "note": "", "sample": true, "unit": "шт"}, "items/ex-hexbits": {"byId": null, "byName": "Пример", "cat": "Инструмент", "cell": "F-2", "createdAt": 1792506000000, "min": 4, "name": "Биты-шестигранники 5/16\" (hex driver)", "note": "", "sample": true, "unit": "шт"}, "items/ex-lineset": {"byId": null, "byName": "Пример", "cat": "Фитинги и мелочь", "cell": "A-3", "createdAt": 1792505640000, "min": 2, "name": "Короб для трассы (line set cover) 4\", комплект", "note": "", "sample": true, "unit": "шт"}, "items/ex-mastic": {"byId": null, "byName": "Пример", "cat": "Расходники", "cell": "D-2", "createdAt": 1792505280000, "min": 2, "name": "Мастика для воздуховодов, 1 галлон", "note": "", "sample": true, "unit": "шт"}, "items/ex-pad": {"byId": null, "byName": "Пример", "cat": "Оборудование", "cell": "A-4", "createdAt": 1792505880000, "min": 1, "name": "Подушка под кондиционер (pad) 24×36", "note": "", "sample": true, "unit": "шт"}, "items/ex-pvcelbow": {"byId": null, "byName": "Пример", "cat": "Фитинги и мелочь", "cell": "A-2", "createdAt": 1792505700000, "min": 20, "name": "PVC уголок 90° 3/4\"", "note": "", "sample": true, "unit": "шт"}, "items/ex-pvctee": {"byId": null, "byName": "Пример", "cat": "Фитинги и мелочь", "cell": "A-2", "createdAt": 1792505760000, "min": 10, "name": "PVC тройник 3/4\"", "note": "", "sample": true, "unit": "шт"}, "items/ex-tstat": {"byId": null, "byName": "Пример", "cat": "Электрика", "cell": "E-1", "createdAt": 1792505400000, "min": 100, "name": "Термостатный провод 18/8", "note": "катушка 250 фут", "sample": true, "unit": "фут"}, "items/ex-whip": {"byId": null, "byName": "Пример", "cat": "Электрика", "cell": "E-2", "createdAt": 1792505520000, "min": 3, "name": "Whip 3/4\" × 6 фут", "note": "", "sample": true, "unit": "шт"}, "items/ex-wirenuts": {"byId": null, "byName": "Пример", "cat": "Электрика", "cell": "E-1", "createdAt": 1792505340000, "min": 1, "name": "Колпачки (wire nuts), ассорти", "note": "", "sample": true, "unit": "коробка"}, "moves/ex-m01": {"at": 1792508400000, "byId": null, "byName": "Пример", "itemId": "ex-filterbase", "itemName": "Фильтр-база (filter base) 20×25", "job": "", "note": "", "qty": 3, "reason": "Первый учёт", "sample": true, "supplier": "", "truck": "", "type": "count", "unit": "шт"}, "moves/ex-m02": {"at": 1792508520000, "byId": null, "byName": "Пример", "itemId": "ex-collar8", "itemName": "Стартовый воротник (start collar) 8\"", "job": "", "note": "", "qty": 14, "reason": "Первый учёт", "sample": true, "supplier": "", "truck": "", "type": "count", "unit": "шт"}, "moves/ex-m03": {"at": 1792508580000, "byId": null, "byName": "Пример", "itemId": "ex-flex6", "itemName": "Флекс R8 6\" (25 фут)", "job": "", "note": "", "qty": 2, "reason": "Первый учёт", "sample": true, "supplier": "", "truck": "", "type": "count", "unit": "коробка"}, "moves/ex-m04": {"at": 1792508640000, "byId": null, "byName": "Пример", "itemId": "ex-flex8", "itemName": "Флекс R8 8\" (25 фут)", "job": "", "note": "", "qty": 3, "reason": "Первый учёт", "sample": true, "supplier": "", "truck": "", "type": "count", "unit": "коробка"}, "moves/ex-m05": {"at": 1792508760000, "byId": null, "byName": "Пример", "itemId": "ex-flex12", "itemName": "Флекс R8 12\" (25 фут)", "job": "", "note": "", "qty": 2, "reason": "Первый учёт", "sample": true, "supplier": "", "truck": "", "type": "count", "unit": "коробка"}, "moves/ex-m06": {"at": 1792508820000, "byId": null, "byName": "Пример", "itemId": "ex-foiltape", "itemName": "Фольгированный скотч 2.5\" (UL 181)", "job": "", "note": "", "qty": 4, "reason": "Первый учёт", "sample": true, "supplier": "", "truck": "", "type": "count", "unit": "шт"}, "moves/ex-m07": {"at": 1792509000000, "byId": null, "byName": "Пример", "itemId": "ex-tstat", "itemName": "Термостатный провод 18/8", "job": "", "note": "", "qty": 180, "reason": "Первый учёт", "sample": true, "supplier": "", "truck": "", "type": "count", "unit": "фут"}, "moves/ex-m08": {"at": 1792509060000, "byId": null, "byName": "Пример", "itemId": "ex-disconnect", "itemName": "Рубильник (disconnect) 60A, non-fused", "job": "", "note": "", "qty": 2, "reason": "Первый учёт", "sample": true, "supplier": "", "truck": "", "type": "count", "unit": "шт"}, "moves/ex-m09": {"at": 1792509120000, "byId": null, "byName": "Пример", "itemId": "ex-whip", "itemName": "Whip 3/4\" × 6 фут", "job": "", "note": "", "qty": 5, "reason": "Первый учёт", "sample": true, "supplier": "", "truck": "", "type": "count", "unit": "шт"}, "moves/ex-m10": {"at": 1792509180000, "byId": null, "byName": "Пример", "itemId": "ex-capacitor", "itemName": "Конденсатор 45/5 µF 440V", "job": "", "note": "", "qty": 3, "reason": "Первый учёт", "sample": true, "supplier": "", "truck": "", "type": "count", "unit": "шт"}, "moves/ex-m11": {"at": 1792509300000, "byId": null, "byName": "Пример", "itemId": "ex-pvcelbow", "itemName": "PVC уголок 90° 3/4\"", "job": "", "note": "", "qty": 35, "reason": "Первый учёт", "sample": true, "supplier": "", "truck": "", "type": "count", "unit": "шт"}, "moves/ex-m12": {"at": 1792509420000, "byId": null, "byName": "Пример", "itemId": "ex-condpump", "itemName": "Дренажная помпа (condensate pump)", "job": "", "note": "", "qty": 2, "reason": "Первый учёт", "sample": true, "supplier": "", "truck": "", "type": "count", "unit": "шт"}, "moves/ex-m13": {"at": 1792509540000, "byId": null, "byName": "Пример", "itemId": "ex-aa", "itemName": "Батарейки AA для термостатов", "job": "", "note": "", "qty": 12, "reason": "Первый учёт", "sample": true, "supplier": "", "truck": "", "type": "count", "unit": "шт"}, "moves/ex-m14": {"at": 1792509600000, "byId": null, "byName": "Пример", "itemId": "ex-hexbits", "itemName": "Биты-шестигранники 5/16\" (hex driver)", "job": "", "note": "", "qty": 6, "reason": "Первый учёт", "sample": true, "supplier": "", "truck": "", "type": "count", "unit": "шт"}, "moves/ex-m15": {"at": 1792689300000, "byId": null, "byName": "Пример", "itemId": "ex-flex8", "itemName": "Флекс R8 8\" (25 фут)", "job": "", "note": "", "qty": 2, "reason": "", "sample": true, "supplier": "Ferguson HVAC", "truck": "", "type": "in", "unit": "коробка"}, "moves/ex-m16": {"at": 1792798800000, "byId": null, "byName": "Пример", "itemId": "ex-pvcelbow", "itemName": "PVC уголок 90° 3/4\"", "job": "", "note": "", "qty": 3, "reason": "Треснули", "sample": true, "supplier": "", "truck": "", "type": "off", "unit": "шт"}, "moves/ex-m17": {"at": 1792850700000, "byId": null, "byName": "Пример", "itemId": "ex-flex6", "itemName": "Флекс R8 6\" (25 фут)", "job": "", "note": "", "qty": 1, "reason": "", "sample": true, "supplier": "", "truck": "T2", "type": "truck", "unit": "коробка"}, "moves/ex-m18": {"at": 1792938600000, "byId": null, "byName": "Пример", "itemId": "ex-condpump", "itemName": "Дренажная помпа (condensate pump)", "job": "4512", "note": "замена помпы, Чула-Виста", "qty": 1, "reason": "", "sample": true, "supplier": "", "truck": "", "type": "job", "unit": "шт"}, "moves/ex-m19": {"at": 1792973400000, "byId": null, "byName": "Пример", "itemId": "ex-whip", "itemName": "Whip 3/4\" × 6 фут", "job": "", "note": "", "qty": 1, "reason": "", "sample": true, "supplier": "", "truck": "T1", "type": "ret", "unit": "шт"}, "moves/ex-m20": {"at": 1793022600000, "byId": null, "byName": "Пример", "itemId": "ex-collar8", "itemName": "Стартовый воротник (start collar) 8\"", "job": "", "note": "", "qty": -1, "reason": "", "sample": true, "supplier": "", "truck": "", "type": "quick", "unit": "шт"}, "moves/ex-m21": {"at": 1793023200000, "byId": null, "byName": "Пример", "itemId": "ex-foiltape", "itemName": "Фольгированный скотч 2.5\" (UL 181)", "job": "", "note": "", "qty": 2, "reason": "", "sample": true, "supplier": "", "truck": "T1", "type": "truck", "unit": "шт"}, "moves/ex-m22": {"at": 1793023320000, "byId": null, "byName": "Пример", "itemId": "ex-wirenuts", "itemName": "Колпачки (wire nuts), ассорти", "job": "", "note": "", "qty": 1, "reason": "", "sample": true, "supplier": "", "truck": "T2", "type": "truck", "unit": "коробка"}, "items/ex-coil": {"name": "Испаритель (coil) 3 т, модель уточнить", "cat": "Оборудование", "unit": "шт", "cell": "A-6", "min": 1, "note": "заглушка для примера, модель уточнить", "sample": true, "createdAt": 1792506180000, "byName": "Пример", "byId": null}, "items/ex-furnace": {"name": "Печь (furnace) 60k BTU, модель уточнить", "cat": "Оборудование", "unit": "шт", "cell": "A-5", "min": 1, "note": "заглушка для примера, модель уточнить", "sample": true, "createdAt": 1792506120000, "byName": "Пример", "byId": null}, "kits/ex-kit1": {"date": "2026-10-28", "job": "4601", "label": "Замена печи и коила", "truck": "T1", "foreman": "Форман 1", "zone": "A1", "lines": {"l1": {"itemId": "ex-furnace", "itemName": "Печь (furnace) 60k BTU, модель уточнить", "unit": "шт", "need": 1, "order": 1, "flag": "", "reason": "", "flagBy": "", "flagAt": 0}, "l2": {"itemId": "ex-coil", "itemName": "Испаритель (coil) 3 т, модель уточнить", "unit": "шт", "need": 1, "order": 2, "flag": "", "reason": "", "flagBy": "", "flagAt": 0}, "l3": {"itemId": "ex-filterbase", "itemName": "Фильтр-база (filter base) 20×25", "unit": "шт", "need": 1, "order": 3, "flag": "", "reason": "", "flagBy": "", "flagAt": 0}, "l4": {"itemId": "ex-collar8", "itemName": "Стартовый воротник (start collar) 8\"", "unit": "шт", "need": 4, "order": 4, "flag": "", "reason": "", "flagBy": "", "flagAt": 0}, "l5": {"itemId": "ex-flex8", "itemName": "Флекс R8 8\" (25 фут)", "unit": "коробка", "need": 1, "order": 5, "flag": "", "reason": "", "flagBy": "", "flagAt": 0}, "l6": {"itemId": "ex-foiltape", "itemName": "Фольгированный скотч 2.5\" (UL 181)", "unit": "шт", "need": 1, "order": 6, "flag": "", "reason": "", "flagBy": "", "flagAt": 0}, "l7": {"itemId": "ex-wirenuts", "itemName": "Колпачки (wire nuts), ассорти", "unit": "коробка", "need": 1, "order": 7, "flag": "", "reason": "", "flagBy": "", "flagAt": 0}}, "stage": "open", "picked": null, "check": null, "issuedAt": 0, "issueMoves": [], "log": [{"kind": "created", "by": "Пример", "at": 1793116800000, "note": ""}], "createdAt": 1793116800000, "byName": "Пример", "byId": null, "sample": true}, "kits/ex-kit2": {"date": "2026-10-28", "job": "4602", "label": "Воздуховоды на чердаке", "truck": "T2", "foreman": "Форман 2", "zone": "A2", "lines": {"l1": {"itemId": "ex-flex6", "itemName": "Флекс R8 6\" (25 фут)", "unit": "коробка", "need": 1, "order": 1, "flag": "", "reason": "", "flagBy": "", "flagAt": 0}, "l2": {"itemId": "ex-flex10", "itemName": "Флекс R8 10\" (25 фут)", "unit": "коробка", "need": 1, "order": 2, "flag": "", "reason": "", "flagBy": "", "flagAt": 0}, "l3": {"itemId": "ex-collar6", "itemName": "Стартовый воротник (start collar) 6\"", "unit": "шт", "need": 6, "order": 3, "flag": "", "reason": "", "flagBy": "", "flagAt": 0}, "l4": {"itemId": "ex-collar8", "itemName": "Стартовый воротник (start collar) 8\"", "unit": "шт", "need": 2, "order": 4, "flag": "", "reason": "", "flagBy": "", "flagAt": 0}, "l5": {"itemId": "ex-foiltape", "itemName": "Фольгированный скотч 2.5\" (UL 181)", "unit": "шт", "need": 1, "order": 5, "flag": "", "reason": "", "flagBy": "", "flagAt": 0}, "l6": {"itemId": "ex-mastic", "itemName": "Мастика для воздуховодов, 1 галлон", "unit": "шт", "need": 1, "order": 6, "flag": "", "reason": "", "flagBy": "", "flagAt": 0}}, "stage": "picked", "picked": {"by": "Пример", "at": 1793140800000, "short": false}, "check": null, "issuedAt": 0, "issueMoves": [], "log": [{"kind": "created", "by": "Пример", "at": 1793117100000, "note": ""}, {"kind": "picked", "by": "Пример", "at": 1793140800000, "note": ""}], "createdAt": 1793117100000, "byName": "Пример", "byId": null, "sample": true}, "kits/ex-kit3": {"date": "2026-10-28", "job": "4603", "label": "Замена печи", "truck": "T3", "foreman": "Форман 3", "zone": "A4", "lines": {"l1": {"itemId": "ex-furnace", "itemName": "Печь (furnace) 60k BTU, модель уточнить", "unit": "шт", "need": 1, "order": 1, "flag": "", "reason": "", "flagBy": "", "flagAt": 0}, "l2": {"itemId": "ex-filterbase", "itemName": "Фильтр-база (filter base) 20×25", "unit": "шт", "need": 1, "order": 2, "flag": "missing", "reason": "На полке B-1 пусто, а по программе 3. Нужен пересчёт.", "flagBy": "Пример", "flagAt": 1793142600000}, "l3": {"itemId": "ex-collar8", "itemName": "Стартовый воротник (start collar) 8\"", "unit": "шт", "need": 2, "order": 3, "flag": "", "reason": "", "flagBy": "", "flagAt": 0}, "l4": {"itemId": "ex-whip", "itemName": "Whip 3/4\" × 6 фут", "unit": "шт", "need": 1, "order": 4, "flag": "", "reason": "", "flagBy": "", "flagAt": 0}, "l5": {"itemId": "ex-disconnect", "itemName": "Рубильник (disconnect) 60A, non-fused", "unit": "шт", "need": 1, "order": 5, "flag": "", "reason": "", "flagBy": "", "flagAt": 0}, "l6": {"itemId": "ex-tstat", "itemName": "Термостатный провод 18/8", "unit": "фут", "need": 40, "order": 6, "flag": "", "reason": "", "flagBy": "", "flagAt": 0}}, "stage": "open", "picked": null, "check": null, "issuedAt": 0, "issueMoves": [], "log": [{"kind": "created", "by": "Пример", "at": 1793117400000, "note": ""}], "createdAt": 1793117400000, "byName": "Пример", "byId": null, "sample": true}, "moves/ex-m23": {"itemId": "ex-furnace", "itemName": "Печь (furnace) 60k BTU, модель уточнить", "unit": "шт", "type": "count", "qty": 2, "job": "", "truck": "", "supplier": "", "reason": "Первый учёт", "note": "", "at": 1792509720000, "byName": "Пример", "byId": null, "sample": true}, "moves/ex-m24": {"itemId": "ex-coil", "itemName": "Испаритель (coil) 3 т, модель уточнить", "unit": "шт", "type": "count", "qty": 1, "job": "", "truck": "", "supplier": "", "reason": "Первый учёт", "note": "", "at": 1792509780000, "byName": "Пример", "byId": null, "sample": true}, "reserves/ex-kit1_l1": {"kitId": "ex-kit1", "lineId": "l1", "itemId": "ex-furnace", "itemName": "Печь (furnace) 60k BTU, модель уточнить", "unit": "шт", "qty": 1, "status": "active", "job": "4601", "truck": "T1", "at": 1793131200000, "byName": "Пример", "byId": null, "sample": true}, "reserves/ex-kit1_l2": {"kitId": "ex-kit1", "lineId": "l2", "itemId": "ex-coil", "itemName": "Испаритель (coil) 3 т, модель уточнить", "unit": "шт", "qty": 1, "status": "active", "job": "4601", "truck": "T1", "at": 1793131380000, "byName": "Пример", "byId": null, "sample": true}, "reserves/ex-kit1_l4": {"kitId": "ex-kit1", "lineId": "l4", "itemId": "ex-collar8", "itemName": "Стартовый воротник (start collar) 8\"", "unit": "шт", "qty": 4, "status": "active", "job": "4601", "truck": "T1", "at": 1793131740000, "byName": "Пример", "byId": null, "sample": true}, "reserves/ex-kit1_l5": {"kitId": "ex-kit1", "lineId": "l5", "itemId": "ex-flex8", "itemName": "Флекс R8 8\" (25 фут)", "unit": "коробка", "qty": 1, "status": "active", "job": "4601", "truck": "T1", "at": 1793131920000, "byName": "Пример", "byId": null, "sample": true}, "reserves/ex-kit2_l1": {"kitId": "ex-kit2", "lineId": "l1", "itemId": "ex-flex6", "itemName": "Флекс R8 6\" (25 фут)", "unit": "коробка", "qty": 1, "status": "active", "job": "4602", "truck": "T2", "at": 1793134800000, "byName": "Пример", "byId": null, "sample": true}, "reserves/ex-kit2_l2": {"kitId": "ex-kit2", "lineId": "l2", "itemId": "ex-flex10", "itemName": "Флекс R8 10\" (25 фут)", "unit": "коробка", "qty": 1, "status": "active", "job": "4602", "truck": "T2", "at": 1793134980000, "byName": "Пример", "byId": null, "sample": true}, "reserves/ex-kit2_l3": {"kitId": "ex-kit2", "lineId": "l3", "itemId": "ex-collar6", "itemName": "Стартовый воротник (start collar) 6\"", "unit": "шт", "qty": 6, "status": "active", "job": "4602", "truck": "T2", "at": 1793135160000, "byName": "Пример", "byId": null, "sample": true}, "reserves/ex-kit2_l4": {"kitId": "ex-kit2", "lineId": "l4", "itemId": "ex-collar8", "itemName": "Стартовый воротник (start collar) 8\"", "unit": "шт", "qty": 2, "status": "active", "job": "4602", "truck": "T2", "at": 1793135340000, "byName": "Пример", "byId": null, "sample": true}, "reserves/ex-kit2_l5": {"kitId": "ex-kit2", "lineId": "l5", "itemId": "ex-foiltape", "itemName": "Фольгированный скотч 2.5\" (UL 181)", "unit": "шт", "qty": 1, "status": "active", "job": "4602", "truck": "T2", "at": 1793135520000, "byName": "Пример", "byId": null, "sample": true}, "reserves/ex-kit2_l6": {"kitId": "ex-kit2", "lineId": "l6", "itemId": "ex-mastic", "itemName": "Мастика для воздуховодов, 1 галлон", "unit": "шт", "qty": 1, "status": "active", "job": "4602", "truck": "T2", "at": 1793135700000, "byName": "Пример", "byId": null, "sample": true}, "reserves/ex-kit3_l1": {"kitId": "ex-kit3", "lineId": "l1", "itemId": "ex-furnace", "itemName": "Печь (furnace) 60k BTU, модель уточнить", "unit": "шт", "qty": 1, "status": "active", "job": "4603", "truck": "T3", "at": 1793138400000, "byName": "Пример", "byId": null, "sample": true}, "reserves/ex-kit3_l3": {"kitId": "ex-kit3", "lineId": "l3", "itemId": "ex-collar8", "itemName": "Стартовый воротник (start collar) 8\"", "unit": "шт", "qty": 2, "status": "active", "job": "4603", "truck": "T3", "at": 1793138760000, "byName": "Пример", "byId": null, "sample": true}, "reserves/ex-kit3_l4": {"kitId": "ex-kit3", "lineId": "l4", "itemId": "ex-whip", "itemName": "Whip 3/4\" × 6 фут", "unit": "шт", "qty": 1, "status": "active", "job": "4603", "truck": "T3", "at": 1793138940000, "byName": "Пример", "byId": null, "sample": true}, "reserves/ex-kit3_l5": {"kitId": "ex-kit3", "lineId": "l5", "itemId": "ex-disconnect", "itemName": "Рубильник (disconnect) 60A, non-fused", "unit": "шт", "qty": 1, "status": "active", "job": "4603", "truck": "T3", "at": 1793139120000, "byName": "Пример", "byId": null, "sample": true}, "reserves/ex-kit3_l6": {"kitId": "ex-kit3", "lineId": "l6", "itemId": "ex-tstat", "itemName": "Термостатный провод 18/8", "unit": "фут", "qty": 40, "status": "active", "job": "4603", "truck": "T3", "at": 1793139300000, "byName": "Пример", "byId": null, "sample": true}, "scrap/ex-s1": {"date": "2026-09-12", "cat": "Al/Cu радиаторы", "lb": 86, "usd": 103.2, "note": "2 конденсера, сняли радиаторы", "at": 1792350000000, "byName": "Пример", "byId": null, "sample": true}, "scrap/ex-s2": {"date": "2026-10-03", "cat": "Медь #2", "lb": 14.5, "usd": 47.85, "note": "обрезки трассы", "at": 1792350060000, "byName": "Пример", "byId": null, "sample": true}, "scrap/ex-s3": {"date": "2026-10-18", "cat": "Компрессоры", "lb": 128, "usd": 25.6, "note": "", "at": 1792350120000, "byName": "Пример", "byId": null, "sample": true}, "scrap/ex-s4": {"date": "2026-10-18", "cat": "Сталь", "lb": 210, "usd": 21, "note": "корпуса конденсеров", "at": 1792350180000, "byName": "Пример", "byId": null, "sample": true}};
+  const clone = o => JSON.parse(JSON.stringify(o));
+  const isObj = v => v && typeof v === 'object' && !Array.isArray(v);
+  function merge(t, s){ for (const k in s){ if (isObj(s[k]) && isObj(t[k])) merge(t[k], s[k]); else t[k] = clone(s[k]); } }
+  function tomorrow(){ const d = new Date(); d.setDate(d.getDate() + 1); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+  let store = null;
+  try { store = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) {}
+  if (!store || typeof store !== 'object'){
+    store = clone(SEED);
+    const t = tomorrow();
+    for (const p in store) if (p.startsWith('kits/')) store[p].date = t;
+  }
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(store)); } catch (e) {} };
+  save();
+  window.__store = store;
+  window.__localDemo = true;
+  window.__resetDemo = () => { try { localStorage.removeItem(KEY); } catch (e) {} location.reload(); };
+  const subs = {};
+  function snap(col){
+    const docs = Object.keys(store).filter(p => p.split('/').slice(0, -1).join('/') === col)
+      .map(p => ({id:p.split('/').pop(), exists:true, data:() => clone(store[p]), metadata:{fromCache:false, hasPendingWrites:false}}));
+    return {docs, size:docs.length, empty:!docs.length, docChanges:() => [], metadata:{fromCache:false, hasPendingWrites:false}};
+  }
+  function notify(col){ save(); setTimeout(() => (subs[col] || []).forEach(fn => fn(snap(col))), 5); }
+  let n = 0;
+  function ref(p){
+    const col = p.split('/').slice(0, -1).join('/');
+    return {id:p.split('/').pop(), path:p,
+      set: async d => { store[p] = clone(d); notify(col); },
+      update: async d => { if (!store[p]) throw {code:'invalid_argument', message:'missing'}; merge(store[p], d); notify(col); },
+      delete: async () => { delete store[p]; notify(col); },
+      get: async () => ({id:p.split('/').pop(), exists:!!store[p], data:() => store[p] && clone(store[p])})};
+  }
+  const newId = () => 'd' + Date.now().toString(36) + (++n) + Math.random().toString(36).slice(2, 6);
+  const db = {
+    doc: p => ref(p),
+    collection: c => ({path:c, doc: id => ref(c + '/' + (id || newId())),
+      onSnapshot: next => { (subs[c] = subs[c] || []).push(next); setTimeout(() => next(snap(c)), 10); return () => { subs[c] = (subs[c] || []).filter(f => f !== next); }; }})
+  };
+  const user = {me: async () => ({id:'demo-user', name:''}), can: async () => true, id: async () => 'demo-user'};
+  window.claude = {use: async name => name === 'db' ? db : name === 'user' ? user : null};
+})();
+</script>
+<title>FixPro Склад v0.1</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap">
+<style>
+/* Layout: one narrow work column of rounded cards; tabs sit under the header on desktop and become a thumb bar at the bottom on phones. FixPro "v2": soft pastel, pill buttons, single light look by brand choice. */
+:root{
+  --bg:#F6F6F1; --card:#FFFEFA; --line:#E4E8DF; --line-strong:#CFD8CB;
+  --ink:#263F3A; --muted:#5B6A62;
+  --main:#276557; --main-ink:#FFFDF2; --main-press:#1C4D42;
+  --soft:#E8EEE5; --soft-ink:#294D42; --soft-press:#D3DECF;
+  --mint:#DFEEE5; --peach:#F7E0D3; --lav:#E9E4F7; --blue:#E0EDF5;
+  --mint-line:#B5D5C1; --peach-line:#E6BCA5; --lav-line:#C8BEE9; --blue-line:#B2CFE2;
+  --warn-ink:#805443; --warn-bg:#F8E7E2; --warn-line:#E9C2B5;
+  --scrim:rgba(38,63,58,.38);
+  --font:'Nunito', ui-rounded, 'SF Pro Rounded', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+  --r-card:24px; --r-pill:999px; --r-input:18px;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:16px;line-height:1.45;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));padding-block:0}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top, 0px);z-index:10;background:var(--bg)}
+button,input,select,textarea{font:inherit;color:inherit}
+h1,h2,h3{margin:0;line-height:1.2;text-wrap:balance;font-weight:900}
+p{margin:0}
+.wrap{max-width:1000px;margin:0 auto;display:flex;flex-direction:column;gap:18px;padding-block:16px 40px}
+.muted{color:var(--muted)}
+.num{font-variant-numeric:tabular-nums}
+:focus-visible{outline:3px solid var(--main);outline-offset:2px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* header */
+.top{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.logo{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--ink)}
+.logo-mark{width:42px;height:42px;border-radius:13px;background:var(--main);color:#fff;display:grid;place-items:center;font-weight:900;font-size:27px;line-height:1;padding-bottom:3px;box-shadow:0 3px 0 var(--main-press)}
+.logo-word{font-weight:900;font-size:24px;letter-spacing:-.02em}
+.app-tag{background:var(--mint);border:1px solid var(--mint-line);border-radius:var(--r-pill);padding:4px 12px;font-weight:800;font-size:14px}
+.top-right{margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.conn{display:inline-flex;align-items:center;gap:6px;font-size:14px;font-weight:700;color:var(--muted)}
+.conn i{width:10px;height:10px;border-radius:50%;background:var(--line-strong);display:inline-block}
+.conn[data-s="ok"] i{background:#3F8F6B}
+.conn[data-s="bad"] i{background:#C0705A}
+.who{min-height:48px}
+
+/* buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:10px 20px;border-radius:var(--r-pill);border:1px solid transparent;font-weight:800;font-size:16px;cursor:pointer;text-decoration:none;transition:transform .08s ease, box-shadow .08s ease;white-space:nowrap}
+.btn:active{transform:translateY(2px)}
+.btn-main{background:var(--main);color:var(--main-ink);box-shadow:0 3px 0 var(--main-press)}
+.btn-main:active{box-shadow:0 1px 0 var(--main-press)}
+.btn-soft{background:var(--soft);color:var(--soft-ink);box-shadow:0 3px 0 var(--soft-press)}
+.btn-soft:active{box-shadow:0 1px 0 var(--soft-press)}
+.btn-ghost{background:transparent;color:var(--soft-ink);border-color:var(--line-strong)}
+.btn-warn{background:var(--warn-bg);color:var(--warn-ink);border-color:var(--warn-line)}
+.btn[disabled]{opacity:.55;cursor:not-allowed;transform:none}
+.btn svg{width:20px;height:20px;flex:none}
+.btn-sm{min-height:48px;padding:8px 16px;font-size:15px}
+.round{width:52px;height:52px;border-radius:50%;padding:0;font-size:18px;font-weight:900}
+
+/* tabs */
+.tabs{display:flex;gap:6px;background:var(--card);border:1px solid var(--line);border-radius:var(--r-pill);padding:6px;position:sticky;top:env(safe-area-inset-top, 0px);z-index:5}
+.tab{flex:1 1 0;min-width:0;display:flex;align-items:center;justify-content:center;gap:8px;min-height:52px;border-radius:var(--r-pill);border:0;background:transparent;font-weight:800;color:var(--muted);cursor:pointer;padding:6px 8px}
+.tab svg{width:22px;height:22px;flex:none}
+.tab[aria-selected="true"]{background:var(--mint);color:var(--ink);box-shadow:inset 0 0 0 1px var(--mint-line)}
+.tab .badge{background:var(--warn-bg);color:var(--warn-ink);border-radius:var(--r-pill);padding:0 8px;font-size:13px;min-width:24px;line-height:22px}
+@media (max-width:719px){
+  .tabs{position:fixed;left:0;right:0;bottom:0;top:auto;border-radius:24px 24px 0 0;border-width:1px 0 0;
+    padding:8px max(10px, env(safe-area-inset-right, 0px)) calc(8px + env(safe-area-inset-bottom, 0px)) max(10px, env(safe-area-inset-left, 0px));gap:4px;box-shadow:0 -4px 16px rgba(38,63,58,.06)}
+  .tab{flex-direction:column;gap:2px;font-size:13px;min-height:56px;border-radius:18px;padding:4px 2px}
+  .tab .badge{position:absolute;transform:translate(16px,-14px);font-size:12px;min-width:22px;line-height:20px}
+  .tab{position:relative}
+  .wrap{padding-bottom:120px}
+  .logo-word{font-size:21px}
+}
+
+/* cards & banners */
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r-card);padding:18px}
+.banner{border-radius:var(--r-card);padding:14px 18px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;border:1px solid var(--line)}
+.banner p{flex:1 1 260px;min-width:0}
+.banner.info{background:var(--blue);border-color:var(--blue-line)}
+.banner.sample{background:var(--lav);border-color:var(--lav-line)}
+.banner.err{background:var(--warn-bg);border-color:var(--warn-line);color:var(--warn-ink)}
+.banner b{font-weight:900}
+
+.view-head{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap}
+.view-head h1{font-size:28px;flex:1 1 220px}
+.view-head .actions{display:flex;gap:10px;flex-wrap:wrap}
+.lead{color:var(--muted);max-width:62ch}
+
+/* search & chips */
+.search{position:relative}
+.search svg{position:absolute;left:18px;top:50%;width:22px;height:22px;transform:translateY(-50%);color:var(--muted);pointer-events:none}
+.search input{padding-left:50px}
+.field input,.field select,.field textarea,.search input,.filters input,.filters select{width:100%;min-height:52px;border-radius:var(--r-input);border:1.5px solid var(--line-strong);background:var(--card);padding:12px 16px;font-size:17px;color:var(--ink)}
+.field textarea{min-height:84px;resize:vertical}
+.field input:focus,.field select:focus,.field textarea:focus,.search input:focus,.filters input:focus,.filters select:focus{border-color:var(--main);outline:none;box-shadow:0 0 0 3px rgba(39,101,87,.18)}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{min-height:48px;padding:8px 16px;border-radius:var(--r-pill);border:1.5px solid var(--line-strong);background:var(--card);font-weight:800;font-size:15px;cursor:pointer;color:var(--soft-ink);display:inline-flex;align-items:center;gap:6px}
+.chip[aria-pressed="true"]{background:var(--mint);border-color:var(--main);color:var(--ink)}
+.chip[aria-pressed="true"]::before{content:"✓";font-weight:900}
+.chip .c{color:var(--muted);font-weight:700}
+
+/* item list */
+.group{display:flex;flex-direction:column;gap:10px}
+.group h2{font-size:19px;display:flex;gap:8px;align-items:baseline}
+.group h2 .muted{font-size:15px;font-weight:700}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,420px),1fr));gap:10px}
+.item{background:var(--card);border:1px solid var(--line);border-radius:var(--r-card);display:flex;align-items:stretch;gap:6px;padding:6px 10px 6px 6px}
+.item-main{flex:1 1 auto;min-width:0;text-align:left;background:transparent;border:0;border-radius:18px;padding:10px 10px;cursor:pointer;display:flex;flex-direction:column;gap:6px}
+.item-main:hover{background:#FAFBF6}
+.item-top{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:14px}
+.item-name{font-weight:800;font-size:17px;line-height:1.25;overflow-wrap:anywhere}
+.item-bottom{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.qty{font-weight:900;font-size:20px}
+.qty small{font-size:15px;font-weight:700;color:var(--muted)}
+.qty.unk{font-size:16px;background:var(--lav);border:1px solid var(--lav-line);border-radius:var(--r-pill);padding:2px 10px}
+.item-quick{display:flex;flex-direction:column;justify-content:center;gap:6px}
+.cell{display:inline-flex;align-items:center;gap:5px;border-radius:10px;padding:2px 9px;font-weight:900;font-size:14px;border:1px solid;color:var(--ink);letter-spacing:.02em}
+.cell::before{content:"";width:8px;height:8px;border-radius:3px;background:currentColor;opacity:.55}
+.cell-0{background:var(--mint);border-color:var(--mint-line)}
+.cell-1{background:var(--peach);border-color:var(--peach-line)}
+.cell-2{background:var(--lav);border-color:var(--lav-line)}
+.cell-3{background:var(--blue);border-color:var(--blue-line)}
+.cell-none{background:var(--soft);border-color:var(--line-strong);color:var(--muted)}
+.tag{display:inline-block;border-radius:var(--r-pill);padding:1px 9px;font-size:13px;font-weight:800;border:1px dashed var(--lav-line);background:var(--card);color:var(--ink)}
+.status{display:inline-flex;align-items:center;gap:5px;border-radius:var(--r-pill);padding:2px 10px;font-size:14px;font-weight:800;border:1px solid}
+.status::before{font-weight:900}
+.s-ok{background:var(--mint);border-color:var(--mint-line);color:var(--ink)}
+.s-ok::before{content:"✓"}
+.s-low,.s-out,.s-neg{background:var(--warn-bg);border-color:var(--warn-line);color:var(--warn-ink)}
+.s-low::before,.s-out::before,.s-neg::before{content:"!"}
+.s-unknown{background:var(--lav);border-color:var(--lav-line);color:var(--ink)}
+.s-unknown::before{content:"?"}
+
+.empty{text-align:center;padding:28px 18px;display:flex;flex-direction:column;align-items:center;gap:10px}
+.empty .blob{width:64px;height:64px;border-radius:22px;background:var(--mint);display:grid;place-items:center;color:var(--main)}
+.empty .blob svg{width:32px;height:32px}
+.empty h3{font-size:19px}
+.empty p{color:var(--muted);max-width:46ch}
+
+/* purchase list */
+.buy{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.buy-info{flex:1 1 240px;min-width:0;display:flex;flex-direction:column;gap:4px}
+.list{display:flex;flex-direction:column;gap:10px;margin:0;padding:0;list-style:none}
+
+/* history */
+.filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,190px),1fr));gap:10px}
+.filters label{display:flex;flex-direction:column;gap:4px;font-weight:800;font-size:14px;color:var(--muted);min-width:0}
+.move{display:flex;gap:12px;align-items:flex-start;padding:14px 4px;border-top:1px solid var(--line)}
+.move:first-child{border-top:0}
+.move-body{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:3px}
+.move-line{display:flex;gap:8px;flex-wrap:wrap;align-items:baseline}
+.move-line b{font-weight:800;overflow-wrap:anywhere}
+.mtype{flex:none;border-radius:14px;padding:6px 10px;font-weight:800;font-size:13px;border:1px solid;min-width:104px;text-align:center;line-height:1.2}
+.t-in{background:var(--mint);border-color:var(--mint-line)}
+.t-ret{background:var(--blue);border-color:var(--blue-line)}
+.t-job,.t-truck{background:var(--peach);border-color:var(--peach-line)}
+.t-off{background:var(--warn-bg);border-color:var(--warn-line);color:var(--warn-ink)}
+.t-count{background:var(--lav);border-color:var(--lav-line)}
+.t-quick{background:var(--soft);border-color:var(--line-strong);color:var(--soft-ink)}
+.delta{font-weight:900}
+.move .meta{font-size:14px;color:var(--muted)}
+.del-row{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+@media (max-width:560px){.move{flex-wrap:wrap}.mtype{min-width:0}.del-row{width:100%;justify-content:flex-start}}
+
+/* scrap */
+.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:16px;align-items:start}
+.month{display:flex;flex-direction:column;gap:8px}
+.month-head{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:baseline}
+.month-head h3{font-size:18px}
+.tbl-wrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+th,td{text-align:left;padding:8px 6px;border-top:1px solid var(--line);font-size:15px}
+th{font-size:13px;color:var(--muted);font-weight:800;border-top:0}
+td.r,th.r{text-align:right}
+
+/* forms */
+form{display:flex;flex-direction:column;gap:16px}
+.field{display:flex;flex-direction:column;gap:6px;min-width:0}
+.field>label,.field>.lbl{font-weight:800;font-size:15px}
+.hint{font-size:14px;color:var(--muted)}
+.err-text{font-size:15px;color:var(--warn-ink);background:var(--warn-bg);border:1px solid var(--warn-line);border-radius:14px;padding:8px 12px;font-weight:700}
+.soft-warn{font-size:15px;background:var(--peach);border:1px solid var(--peach-line);border-radius:14px;padding:10px 12px}
+.row2{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr));gap:12px}
+.form-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+.form-actions .btn{flex:1 1 160px}
+.picked{display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:var(--mint);border:1px solid var(--mint-line);border-radius:18px;padding:10px 12px}
+.picked b{flex:1 1 160px;min-width:0;overflow-wrap:anywhere}
+.pick-list{display:flex;flex-direction:column;gap:6px}
+.pick{display:flex;gap:8px;align-items:center;min-height:52px;text-align:left;border:1px solid var(--line);background:var(--card);border-radius:16px;padding:8px 12px;cursor:pointer;font-weight:700}
+.pick:hover{background:#FAFBF6}
+.pick span.n{flex:1;min-width:0;overflow-wrap:anywhere}
+.types{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr));gap:8px}
+.type{min-height:56px;border-radius:18px;border:1.5px solid var(--line-strong);background:var(--card);font-weight:800;cursor:pointer;display:flex;align-items:center;gap:8px;padding:8px 12px;text-align:left;line-height:1.15;color:var(--ink)}
+.type svg{width:22px;height:22px;flex:none}
+.type[aria-pressed="true"]{border-color:var(--main);box-shadow:inset 0 0 0 1px var(--main)}
+.type.t-in,.type.t-ret,.type.t-job,.type.t-truck,.type.t-off,.type.t-count{border-width:1.5px}
+
+/* sheet */
+.overlay{position:fixed;inset:0;background:var(--scrim);z-index:30;display:flex;align-items:flex-end;justify-content:center;padding:env(safe-area-inset-top, 0px) 0 0}
+.sheet{background:var(--bg);width:100%;max-width:620px;max-height:calc(100dvh - 20px - env(safe-area-inset-top, 0px));overflow-y:auto;border-radius:28px 28px 0 0;
+  padding:20px max(18px, env(safe-area-inset-right, 0px)) calc(24px + env(safe-area-inset-bottom, 0px)) max(18px, env(safe-area-inset-left, 0px));display:flex;flex-direction:column;gap:16px;box-shadow:0 -8px 30px rgba(38,63,58,.18)}
+@media (min-width:720px){.overlay{align-items:center;padding:24px}.sheet{border-radius:28px;max-height:calc(100dvh - 48px)}}
+.sheet-head{display:flex;gap:10px;align-items:flex-start}
+.sheet-head h2{flex:1;font-size:23px;overflow-wrap:anywhere}
+.x{width:48px;height:48px;border-radius:50%;border:1px solid var(--line-strong);background:var(--card);cursor:pointer;font-size:22px;font-weight:900;flex:none;color:var(--soft-ink)}
+.stock-big{display:flex;gap:12px;align-items:center;flex-wrap:wrap;background:var(--card);border:1px solid var(--line);border-radius:22px;padding:14px 16px}
+.stock-big .big{font-size:34px;font-weight:900;line-height:1}
+.stock-big .big small{font-size:18px;color:var(--muted)}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:15px}
+.kv dt{color:var(--muted);font-weight:700}
+.kv dd{margin:0;font-weight:700;overflow-wrap:anywhere}
+.mini-moves{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:4px 14px}
+
+/* toast */
+.toasts{position:fixed;left:0;right:0;bottom:calc(16px + env(safe-area-inset-bottom, 0px));display:flex;flex-direction:column;align-items:center;gap:8px;z-index:40;pointer-events:none;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px))}
+@media (max-width:719px){.toasts{bottom:calc(96px + env(safe-area-inset-bottom, 0px))}}
+.toast{pointer-events:auto;background:var(--ink);color:var(--main-ink);border-radius:20px;padding:10px 10px 10px 18px;display:flex;gap:12px;align-items:center;max-width:560px;width:100%;box-shadow:0 6px 20px rgba(38,63,58,.25);font-weight:700}
+.toast p{flex:1;min-width:0}
+.toast .btn{min-height:44px;background:var(--mint);color:var(--ink)}
+.toast.bad{background:var(--warn-bg);color:var(--warn-ink);border:1px solid var(--warn-line)}
+.foot{color:var(--muted);font-size:14px;text-align:center;padding-top:8px}
+/* kits (Комплекты): zones board laid out like the warehouse floor, 5S zone placards with hazard-tape stripe */
+.kctl{display:flex;flex-direction:column;gap:12px;padding:14px}
+.kctl-row{display:flex;gap:8px 12px;align-items:center;flex-wrap:wrap}
+.kctl-row>.lbl{font-weight:800;font-size:14px;color:var(--muted);flex:0 0 84px}
+.seg{display:flex;gap:6px;flex:1 1 300px;background:var(--bg);border:1px solid var(--line);border-radius:var(--r-pill);padding:5px;min-width:0}
+.seg button{flex:1 1 0;min-width:0;min-height:54px;border-radius:var(--r-pill);border:0;background:transparent;cursor:pointer;color:var(--muted);font-weight:900;font-size:17px;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.15;padding:4px 8px}
+.seg button small{font-size:13px;font-weight:700}
+.seg button[aria-pressed="true"]{background:var(--mint);color:var(--ink);box-shadow:inset 0 0 0 1px var(--mint-line)}
+.odate{display:flex;align-items:center;gap:8px;font-weight:700;color:var(--muted);font-size:14px}
+.odate input{min-height:48px;border-radius:var(--r-input);border:1.5px solid var(--line-strong);background:var(--card);padding:8px 12px;font-size:16px;color:var(--ink)}
+.ksum{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.ksum b{font-weight:900;font-size:17px;margin-right:4px}
+.zones{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,160px),1fr));gap:10px}
+@media (min-width:760px){.zones{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.zone{background:var(--card);border:1px solid var(--line);border-radius:var(--r-card);padding:10px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.zone.free{background:transparent;border:1.5px dashed var(--line-strong);padding:10px 12px}
+.zone.free p{font-weight:800;color:var(--muted)}
+.zone.free .btn{align-self:stretch;padding-inline:10px;white-space:normal}
+.zkit{display:flex;flex-direction:column;gap:6px;width:100%;text-align:left;background:transparent;border:0;border-radius:16px;padding:6px 4px;cursor:pointer;color:var(--ink);min-width:0}
+.zkit:hover{background:#FAFBF6}
+.zkit+.zkit{border-top:1px solid var(--line);border-radius:0 0 16px 16px;padding-top:10px}
+.zjob{font-weight:900;font-size:19px;line-height:1.15}
+.zlabel{font-weight:700;font-size:14px;color:var(--muted);line-height:1.3;overflow-wrap:anywhere}
+.zmeta{display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:14px;font-weight:700;color:var(--muted);overflow-wrap:anywhere}
+.truck{display:inline-flex;align-items:center;gap:5px;background:var(--soft);border:1px solid var(--line-strong);border-radius:9px;padding:1px 8px;font-weight:900;color:var(--ink);font-size:14px}
+.truck svg{width:16px;height:16px;flex:none}
+.truck.big{font-size:20px;padding:4px 12px;border-radius:12px}
+.truck.big svg{width:22px;height:22px}
+.prog{display:block;height:8px;border-radius:99px;background:var(--soft);overflow:hidden}
+.prog i{display:block;height:100%;background:var(--main);border-radius:99px}
+.ptext{font-size:14px;font-weight:800}
+.ztag{display:inline-flex;align-items:stretch;gap:8px;align-self:flex-start;border-radius:12px;border:2px solid var(--zl);background:var(--zb);padding:3px 10px 3px 3px;color:var(--ink);flex:none}
+.ztag::before{content:"";width:12px;border-radius:8px;background:repeating-linear-gradient(-45deg,var(--ink) 0 3px,var(--zb) 3px 7px);opacity:.8}
+.ztag>span{display:flex;flex-direction:column;justify-content:center;line-height:1}
+.ztag small{font-size:10px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.ztag b{font-size:22px;font-weight:900;letter-spacing:.02em}
+.ztag.big{border-radius:16px;padding:6px 14px 6px 4px;gap:10px}
+.ztag.big::before{width:16px;border-radius:10px}
+.ztag.big b{font-size:34px}
+.ztag.big small{font-size:11px}
+.z0{--zb:var(--mint);--zl:var(--mint-line)}
+.z1{--zb:var(--peach);--zl:var(--peach-line)}
+.z2{--zb:var(--lav);--zl:var(--lav-line)}
+.z3{--zb:var(--blue);--zl:var(--blue-line)}
+.kst{display:inline-flex;align-items:center;gap:5px;align-self:flex-start;border-radius:var(--r-pill);padding:3px 10px;font-size:14px;font-weight:800;border:1px solid;line-height:1.25;color:var(--ink)}
+.kst::before{font-weight:900}
+.k-open{background:var(--blue);border-color:var(--blue-line)}.k-open::before{content:"…"}
+.k-short{background:var(--warn-bg);border-color:var(--warn-line);color:var(--warn-ink)}.k-short::before{content:"!"}
+.k-picked{background:var(--mint);border-color:var(--mint-line)}.k-picked::before{content:"✓"}
+.k-pshort{background:var(--peach);border-color:var(--peach-line)}.k-pshort::before{content:"!"}
+.k-q{background:var(--lav);border-color:var(--lav-line)}.k-q::before{content:"?"}
+.k-acc{background:var(--main);border-color:var(--main);color:var(--main-ink)}.k-acc::before{content:"✓✓"}
+.k-empty{background:var(--soft);border-color:var(--line-strong);color:var(--muted)}.k-empty::before{content:"○"}
+.khead{display:flex;flex-direction:column;gap:12px}
+.khead-top{display:flex;gap:12px 16px;align-items:flex-start;flex-wrap:wrap}
+.khead-title{flex:1 1 220px;min-width:0;display:flex;flex-direction:column;gap:6px}
+.khead-title h1{font-size:26px;overflow-wrap:anywhere}
+.kmeta{display:flex;gap:6px 10px;flex-wrap:wrap;align-items:center;font-weight:700;color:var(--muted);font-size:15px}
+.klines{display:flex;flex-direction:column;gap:10px;margin:0;padding:0;list-style:none}
+.kline{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.kline.kdone{border-color:var(--mint-line)}
+.kline.kmiss{border-color:var(--warn-line)}
+.kline-top{display:flex;gap:6px 10px;align-items:center;flex-wrap:wrap}
+.kline-name{flex:1 1 200px;min-width:0;font-weight:800;font-size:17px;line-height:1.25;overflow-wrap:anywhere}
+.kline-q{font-weight:900;font-size:20px;white-space:nowrap}
+.kline-q small{font-size:15px;font-weight:700;color:var(--muted)}
+.kline-sub{display:flex;gap:6px 10px;flex-wrap:wrap;align-items:center;font-size:14px;color:var(--muted);font-weight:700}
+.kline-why{font-size:15px;background:var(--warn-bg);color:var(--warn-ink);border:1px solid var(--warn-line);border-radius:14px;padding:6px 10px;font-weight:700;overflow-wrap:anywhere}
+.kline-why.unk{background:var(--lav);color:var(--ink);border-color:var(--lav-line)}
+.kacts{display:flex;gap:8px;flex-wrap:wrap}
+.kacts .btn{flex:1 1 auto;padding-inline:16px}
+.lst{display:inline-flex;align-items:center;gap:5px;border-radius:var(--r-pill);padding:2px 10px;font-size:14px;font-weight:800;border:1px solid;color:var(--ink);white-space:nowrap}
+.lst::before{font-weight:900}
+.l-done{background:var(--mint);border-color:var(--mint-line)}.l-done::before{content:"✓"}
+.l-part{background:var(--blue);border-color:var(--blue-line)}.l-part::before{content:"…"}
+.l-miss{background:var(--warn-bg);border-color:var(--warn-line);color:var(--warn-ink)}.l-miss::before{content:"!"}
+.l-unk{background:var(--lav);border-color:var(--lav-line)}.l-unk::before{content:"?"}
+.l-wait{background:var(--soft);border-color:var(--line-strong);color:var(--soft-ink)}.l-wait::before{content:"○"}
+.resv{display:inline-flex;align-items:center;border-radius:var(--r-pill);padding:2px 10px;font-size:14px;font-weight:800;background:var(--blue);border:1px solid var(--blue-line);color:var(--ink);white-space:nowrap}
+.resv-box{background:var(--blue);border:1px solid var(--blue-line);border-radius:18px;padding:12px 14px;display:flex;flex-direction:column;gap:4px;font-size:15px}
+.resv-box b{font-weight:900}
+.conf{display:flex;flex-direction:column;gap:12px}
+.conf h3{font-size:18px}
+.signed{background:var(--mint);border:1px solid var(--mint-line);border-radius:16px;padding:10px 12px;font-weight:700;overflow-wrap:anywhere}
+.signed.short{background:var(--peach);border-color:var(--peach-line)}
+.signed.q{background:var(--lav);border-color:var(--lav-line)}
+.banner.ok{background:var(--mint);border-color:var(--mint-line)}
+.banner.q{background:var(--lav);border-color:var(--lav-line)}
+.klog summary{min-height:48px;display:flex;align-items:center;cursor:pointer;font-weight:800;font-size:17px}
+.klog ul{list-style:none;margin:8px 0 0;padding:0;display:flex;flex-direction:column;gap:6px;font-size:15px}
+.klog li{display:flex;gap:4px 8px;flex-wrap:wrap}
+.klog li b{font-weight:800}
+.fkit{display:flex;flex-direction:column;gap:12px}
+.fkit-head{display:flex;gap:10px 12px;align-items:flex-start;flex-wrap:wrap}
+.fkit-title{flex:1 1 200px;min-width:0;display:flex;flex-direction:column;gap:4px}
+.fkit-title h3{font-size:20px;overflow-wrap:anywhere}
+.flines{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.flines li{display:flex;gap:4px 10px;align-items:center;flex-wrap:wrap;padding:10px 2px;border-top:1px solid var(--line)}
+.flines li:first-child{border-top:0}
+.flines .n{flex:1 1 160px;min-width:0;font-weight:800;overflow-wrap:anywhere}
+.flines .q{font-weight:800;font-size:15px}
+.flines .why{flex-basis:100%;padding-left:38px;font-size:14px;color:var(--warn-ink);font-weight:700;overflow-wrap:anywhere}
+.lmark{width:28px;height:28px;border-radius:50%;display:inline-grid;place-items:center;font-weight:900;font-size:14px;flex:none;border:1px solid}
+.lm-done{background:var(--mint);border-color:var(--mint-line)}
+.lm-part,.lm-wait{background:var(--soft);border-color:var(--line-strong)}
+.lm-miss{background:var(--warn-bg);border-color:var(--warn-line);color:var(--warn-ink)}
+.lm-unk{background:var(--lav);border-color:var(--lav-line)}
+.short{background:var(--warn-bg);border:1px solid var(--warn-line);border-radius:var(--r-card);padding:16px;display:flex;flex-direction:column;gap:10px}
+.short-head{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.short-head h2{flex:1 1 200px;color:var(--warn-ink);font-size:20px}
+.short h3{font-size:16px;color:var(--warn-ink)}
+.short>p{color:var(--warn-ink);font-weight:700;font-size:15px}
+.short-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.short-list li{background:var(--card);border:1px solid var(--warn-line);border-radius:16px;padding:10px 12px;display:flex;flex-direction:column;gap:2px;overflow-wrap:anywhere}
+.short-list li b{font-weight:800}
+.short-list .muted{font-size:14px}
+.zpick{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.zpick button{min-height:58px;border-radius:16px;border:1.5px solid var(--line-strong);background:var(--card);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:4px;color:var(--ink);min-width:0}
+.zpick button span{font-weight:900;font-size:19px;line-height:1}
+.zpick button small{font-size:12px;font-weight:700;color:var(--muted);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.zpick button[aria-pressed="true"]{background:var(--zb);border-color:var(--main);box-shadow:inset 0 0 0 2px var(--main)}
+.fline{display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:8px 10px}
+.fline .n{flex:1 1 150px;min-width:0;font-weight:800;overflow-wrap:anywhere}
+.stepper{display:flex;align-items:center;gap:6px}
+.stepper input{width:68px;min-height:48px;text-align:center;border-radius:14px;border:1.5px solid var(--line-strong);background:var(--card);font-size:17px;font-weight:800;color:var(--ink);padding:8px 6px}
+.stepper input:focus{border-color:var(--main);outline:none;box-shadow:0 0 0 3px rgba(39,101,87,.18)}
+.stepper .u{font-size:14px;color:var(--muted);font-weight:700;min-width:30px}
+.round.sm{width:48px;height:48px}
+@media (max-width:400px){.tab{font-size:12px}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <a class="logo" href="#komplekty" aria-label="fixpro, склад">
+      <span class="logo-mark" aria-hidden="true">f</span>
+      <span class="logo-word">fixpro</span>
+    </a>
+    <span class="app-tag">Склад v0.1</span>
+    <div class="top-right">
+      <span class="conn" id="conn" data-s="wait"><i aria-hidden="true"></i><span id="connText">Подключаемся…</span></span>
+      <button class="btn btn-ghost btn-sm who" id="whoBtn" type="button">Кто вы?</button>
+    </div>
+  </header>
+
+  <nav class="tabs" role="tablist" aria-label="Разделы">
+    <button class="tab" role="tab" id="tab-komplekty" data-tab="komplekty" aria-selected="true" type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="4" width="14" height="17" rx="3"/><path d="M9 4V2.8h6V4"/><path d="M9 12.5l2.2 2.2L15.5 10"/></svg>
+      <span>Комплекты</span></button>
+    <button class="tab" role="tab" id="tab-sklad" data-tab="sklad" aria-selected="false" type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8l9-5 9 5v8l-9 5-9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg>
+      <span>Склад</span></button>
+    <button class="tab" role="tab" id="tab-zakupka" data-tab="zakupka" aria-selected="false" type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4h2l2.4 11h10.8L21 7H6.2"/><circle cx="9.5" cy="19.5" r="1.5"/><circle cx="17" cy="19.5" r="1.5"/></svg>
+      <span>Закупка</span><span class="badge num" id="buyBadge" hidden></span></button>
+    <button class="tab" role="tab" id="tab-istoriya" data-tab="istoriya" aria-selected="false" type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+      <span>История</span></button>
+    <button class="tab" role="tab" id="tab-lom" data-tab="lom" aria-selected="false" type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v16M5 20h14M6 8h12M6 8l-3 7h6zM18 8l-3 7h6z"/></svg>
+      <span>Лом</span></button>
+  </nav>
+
+  <div id="banners" class="group"></div>
+
+  <!-- КОМПЛЕКТЫ -->
+  <section id="view-komplekty" role="tabpanel" aria-labelledby="tab-komplekty" class="group" style="gap:16px">
+    <div id="kitBoardHead" class="group" style="gap:16px">
+      <div class="view-head">
+        <h1>Комплекты</h1>
+        <div class="actions"><button class="btn btn-main" type="button" id="newKitBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Новый комплект</button></div>
+      </div>
+      <p class="lead">Комплект на завтра собираем сегодня или рано утром в своей зоне. «Положил» — товар уходит в резерв. Со склада он списывается, когда форман проверил и принял.</p>
+      <div class="card kctl">
+        <div class="kctl-row"><span class="lbl" id="dayLbl">День</span>
+          <div class="seg" role="group" aria-labelledby="dayLbl">
+            <button type="button" data-kday="today" aria-pressed="false">Сегодня<small id="dToday"></small></button>
+            <button type="button" data-kday="tomorrow" aria-pressed="true">Завтра<small id="dTomorrow"></small></button>
+          </div>
+          <label class="odate">или дата <input type="date" id="kDate"></label>
+        </div>
+        <div class="kctl-row"><span class="lbl" id="truckLbl">Мой трак</span><div class="chips" id="truckChips" role="group" aria-labelledby="truckLbl"></div></div>
+      </div>
+    </div>
+    <div id="kitsOut" class="group" style="gap:16px"></div>
+  </section>
+
+  <!-- СКЛАД -->
+  <section id="view-sklad" role="tabpanel" aria-labelledby="tab-sklad" class="group" style="gap:16px" hidden>
+    <div class="view-head">
+      <h1>Склад</h1>
+      <div class="actions">
+        <button class="btn btn-soft" type="button" id="newItemBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Новая позиция</button>
+        <button class="btn btn-main" type="button" id="newMoveBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h13l-3-3M20 17H7l3 3"/></svg>Записать движение</button>
+      </div>
+    </div>
+    <div class="search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
+      <label for="q" class="sr">Поиск по складу</label>
+      <input id="q" type="search" placeholder="Поиск: название, ячейка (A-1), заметка" autocomplete="off">
+    </div>
+    <div class="chips" id="catChips" aria-label="Категории"></div>
+    <div id="itemsOut" class="group" style="gap:20px"></div>
+  </section>
+
+  <!-- ЗАКУПКА -->
+  <section id="view-zakupka" role="tabpanel" aria-labelledby="tab-zakupka" class="group" style="gap:16px" hidden>
+    <div class="view-head">
+      <h1>Пора закупать</h1>
+      <div class="actions"><button class="btn btn-main" type="button" id="copyBuyBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="3"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>Скопировать список</button></div>
+    </div>
+    <p class="lead">Позиция попадает сюда, когда остаток дошёл до минимума или ниже. Правило команды: было две коробки, осталась одна — закупать. Это подсказка, выдавать всё равно можно.</p>
+    <div id="buyOut" class="group"></div>
+    <textarea id="copyFallback" class="sr" aria-hidden="true" tabindex="-1"></textarea>
+  </section>
+
+  <!-- ИСТОРИЯ -->
+  <section id="view-istoriya" role="tabpanel" aria-labelledby="tab-istoriya" class="group" style="gap:16px" hidden>
+    <div class="view-head"><h1>История</h1></div>
+    <div class="filters card" style="padding:14px">
+      <label>Поиск<input id="hq" type="search" placeholder="Что угодно: позиция, заметка" autocomplete="off"></label>
+      <label>Позиция<select id="hItem"></select></label>
+      <label>Кто<select id="hWho"></select></label>
+      <label>Заказ или трак<input id="hWhere" type="search" placeholder="например 4512 или T2" autocomplete="off"></label>
+      <label>Тип<select id="hType"></select></label>
+    </div>
+    <div id="histOut"></div>
+  </section>
+
+  <!-- МЕТАЛЛОЛОМ -->
+  <section id="view-lom" role="tabpanel" aria-labelledby="tab-lom" class="group" style="gap:16px" hidden>
+    <div class="view-head"><h1>Металлолом</h1></div>
+    <p class="lead">Талоны с весов пункта приёма. Видно, сколько фунтов и долларов приносит лом по месяцам и по видам.</p>
+    <div class="two">
+      <form class="card" id="scrapForm" novalidate>
+        <h2 style="font-size:20px">Новый талон</h2>
+        <div class="row2">
+          <div class="field"><label for="sDate">Дата</label><input id="sDate" type="date" required></div>
+          <div class="field"><label for="sCat">Что сдали</label><select id="sCat"></select></div>
+        </div>
+        <div class="row2">
+          <div class="field"><label for="sLb">Вес, lb</label><input id="sLb" type="text" inputmode="decimal" placeholder="например 86" autocomplete="off"></div>
+          <div class="field"><label for="sUsd">Сумма, $</label><input id="sUsd" type="text" inputmode="decimal" placeholder="например 95.40" autocomplete="off"></div>
+        </div>
+        <div class="field"><label for="sNote">Заметка</label><input id="sNote" type="text" placeholder="пункт приёма, № талона, откуда лом" autocomplete="off"></div>
+        <div id="scrapErr"></div>
+        <div class="form-actions"><button class="btn btn-main" type="submit" id="scrapSave">Добавить талон</button></div>
+      </form>
+      <div class="group" id="scrapTotals"></div>
+    </div>
+    <div id="scrapList"></div>
+  </section>
+
+  <p class="foot">Прототип FixPro Склад v0.1 · данные общие для всех, кому открыт доступ · количество считается только по движениям · резерв в комплекте ещё не списание</p>
+</div>
+
+<div class="overlay" id="overlay" hidden>
+  <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle"></div>
+</div>
+<div class="toasts" id="toasts" aria-live="polite"></div>
+
+<script>
+(function(){
+'use strict';
+
+/* ---------- constants ---------- */
+const CATS = ['Оборудование','Фитинги и мелочь','Воздуховоды','Электрика','Инструмент','Батареи','Расходники','Extra Tools'];
+const UNITS = ['шт','коробка','фут'];
+const UNIT_SHORT = {'шт':'шт','коробка':'кор.','фут':'фут'};
+const TYPES = {
+  in:    {label:'Приход',          short:'Приход',   sign:+1},
+  job:   {label:'Выдача на заказ', short:'На заказ', sign:-1},
+  truck: {label:'Выдача в трак',   short:'В трак',   sign:-1},
+  ret:   {label:'Возврат',         short:'Возврат',  sign:+1},
+  off:   {label:'Списание',        short:'Списание', sign:-1},
+  count: {label:'Пересчёт',        short:'Пересчёт', sign:0},
+  quick: {label:'Быстро',          short:'Быстро',   sign:0}
+};
+const FORM_TYPES = ['in','job','truck','ret','off','count'];
+const SCRAP_CATS = ['Al/Cu радиаторы','Алюминий','Медь #2','Провод','Латунь','Компрессоры','Сталь'];
+const OFF_REASONS = ['Брак','Сломали','Потеряли','Истёк срок'];
+const COUNT_REASONS = ['Первый учёт','Плановый пересчёт','Нашли расхождение'];
+const ICONS = {
+  in:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>',
+  job:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11l8-7 8 7"/><path d="M6 10v10h12V10"/><path d="M10 20v-5h4v5"/></svg>',
+  truck:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 6h11v10H2zM13 10h4l4 4v2h-8"/><circle cx="6" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg>',
+  ret:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg>',
+  off:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>',
+  count:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="3"/><path d="M9 8h6M9 12h6M9 16h3"/></svg>',
+  box:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8l9-5 9 5v8l-9 5-9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg>',
+  check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg>',
+  clock:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+  kit:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="4" width="14" height="17" rx="3"/><path d="M9 4V2.8h6V4"/><path d="M9 12.5l2.2 2.2L15.5 10"/></svg>',
+  plus:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>',
+  scale:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v16M5 20h14M6 8h12M6 8l-3 7h6zM18 8l-3 7h6z"/></svg>'
+};
+const NAME_KEY = 'fixpro.sklad.name';
+
+/* ---------- state ---------- */
+const S = {
+  db:null, user:null, myId:null, accountName:'', canWrite:null, readOnly:false,
+  conn:'wait', items:[], moves:[], scrap:[], kits:[], reserves:[],
+  loaded:{items:false,moves:false,scrap:false,kits:false,reserves:false},
+  stock:new Map(), resById:new Map(), reserved:new Map(), tab:'komplekty', q:'', cat:'',
+  kDate:'', kDateAuto:true, kTruck:'', kitOpen:null, kitDelAsk:null, kitPending:null, kitPendingAt:0,
+  hist:{q:'',item:'',who:'',where:'',type:''}, histLimit:200, confirmDel:null,
+  scrapConfirm:null, sampleConfirm:false, busy:false
+};
+
+/* ---------- helpers ---------- */
+const $ = (s, r=document) => r.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const round2 = n => Math.round(n*100)/100;
+const nf = new Intl.NumberFormat('ru-RU', {maximumFractionDigits:2});
+const fmtN = n => nf.format(round2(n)).replace('-', '−');
+const money = new Intl.NumberFormat('en-US', {style:'currency', currency:'USD'});
+const dtf = new Intl.DateTimeFormat('ru-RU', {day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'});
+const df = new Intl.DateTimeFormat('ru-RU', {day:'numeric', month:'short', year:'numeric'});
+const fmtAt = ms => ms ? dtf.format(new Date(ms)) : '';
+const unitS = u => UNIT_SHORT[u] || u || 'шт';
+const parseNum = v => { const s = String(v ?? '').trim().replace(/\s/g,'').replace(',', '.'); if (s === '') return null; const n = Number(s); return Number.isFinite(n) ? n : NaN; };
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+function lsGet(k){ try { return localStorage.getItem(k) || ''; } catch(e){ return ''; } }
+function lsSet(k,v){ try { localStorage.setItem(k, v); } catch(e){} }
+function signature(){ return (lsGet(NAME_KEY) || S.accountName || '').trim(); }
+function clean(o){ const r = {}; for (const k in o){ if (o[k] !== undefined) r[k] = o[k]; } return r; }
+function norm(s){ return String(s||'').toLowerCase().replace(/ё/g,'е'); }
+
+function cellClass(cell){
+  const c = String(cell||'').trim().toUpperCase();
+  if (!c) return 'cell-none';
+  const ch = c.charCodeAt(0);
+  if (ch >= 65 && ch <= 90) return 'cell-' + ((ch - 65) % 4);
+  return 'cell-' + (ch % 4);
+}
+function cellChip(cell){ const c = String(cell||'').trim(); return `<span class="cell ${cellClass(c)}">${c ? esc(c.toUpperCase()) : 'без ячейки'}</span>`; }
+
+function delta(m){ const q = Number(m.qty) || 0; if (m.type === 'quick') return q; const t = TYPES[m.type]; return t ? t.sign * q : 0; }
+function computeStock(){
+  const by = new Map();
+  const sorted = [...S.moves].sort((a,b) => (a.at||0) - (b.at||0));
+  for (const m of sorted){
+    let st = by.get(m.itemId);
+    if (!st){ st = {known:false, qty:0, drift:0, last:0, n:0}; by.set(m.itemId, st); }
+    if (m.type === 'count'){ st.known = true; st.qty = Number(m.qty)||0; st.drift = 0; }
+    else { const d = delta(m); if (st.known) st.qty += d; else st.drift += d; }
+    st.qty = round2(st.qty); st.drift = round2(st.drift);
+    st.last = m.at || st.last; st.n++;
+  }
+  S.stock = by;
+}
+function stockOf(id){ return S.stock.get(id) || {known:false, qty:0, drift:0, last:0, n:0}; }
+function hasMin(it){ return it.min !== null && it.min !== undefined && it.min !== '' && Number.isFinite(Number(it.min)); }
+function statusOf(it){
+  const st = stockOf(it.id);
+  if (!st.known) return {key:'unknown', label:'Остаток неизвестен'};
+  if (st.qty < 0) return {key:'neg', label:'Меньше нуля — пересчитайте'};
+  if (st.qty === 0) return {key:'out', label:'Нет на складе'};
+  if (hasMin(it) && st.qty <= Number(it.min)) return {key:'low', label:'Пора закупать'};
+  return {key:'ok', label:'В норме'};
+}
+function needsBuy(it){ const k = statusOf(it).key; return k === 'low' || k === 'out' || k === 'neg'; }
+function statusChip(it){ const s = statusOf(it); return `<span class="status s-${s.key}">${esc(s.label)}</span>`; }
+function qtyHtml(it, big){
+  const st = stockOf(it.id);
+  if (!st.known){
+    const d = st.drift ? ` <small class="num">(записано ${st.drift>0?'+':''}${fmtN(st.drift)} ${esc(unitS(it.unit))})</small>` : '';
+    return big ? `<span class="big" style="font-size:26px">неизвестно</span>${d}` : `<span class="qty unk">неизвестно</span>${d}`;
+  }
+  return big ? `<span class="big num">${fmtN(st.qty)} <small>${esc(unitS(it.unit))}</small></span>`
+             : `<span class="qty num">${fmtN(st.qty)} <small>${esc(unitS(it.unit))}</small></span>`;
+}
+const itemById = id => S.items.find(i => i.id === id);
+function sortedItems(list){ return [...list].sort((a,b) => String(a.name||'').localeCompare(String(b.name||''), 'ru', {numeric:true})); }
+
+/* ---------- connection + identity ---------- */
+function setConn(s, text){ S.conn = s; const el = $('#conn'); el.dataset.s = s; $('#connText').textContent = text; }
+function canWriteNow(){ return !!S.db && !S.readOnly && S.canWrite !== false; }
+function ensureCanWrite(){
+  if (!S.db){ toast('Нет связи с общей базой. Обновите страницу.', {bad:true}); return false; }
+  if (!canWriteNow()){ toast('У вас доступ только для просмотра. Попросите владельца дать права «Редактор».', {bad:true}); return false; }
+  return true;
+}
+function renderWho(){ const s = signature(); $('#whoBtn').textContent = s ? 'Записывает: ' + s : 'Кто вы? Нажмите'; }
+
+function errText(e){
+  switch (e && e.code){
+    case 'invalid_argument': return 'Не сохранилось: похоже, у вас нет прав на запись. Попросите владельца дать доступ «Редактор».';
+    case 'quota_exceeded': return 'База заполнена. Удалите примеры или старые записи и попробуйте снова.';
+    case 'resource_exhausted': return 'Слишком много действий подряд. Подождите пару секунд и повторите.';
+    case 'revoked': return 'Доступ к базе закрыт. Обновите страницу или попросите доступ у владельца.';
+    case 'not_granted': case 'capability_disabled': case 'capability_removed': return 'Общая база недоступна на этой странице. Откройте ссылку на claude.ai.';
+    default: return 'Нет связи с базой, запись не сохранилась. Попробуйте ещё раз.';
+  }
+}
+async function write(fn){
+  try { return await fn(); }
+  catch (e){
+    let err = e;
+    if (e && (e.code === 'unavailable' || !e.code)){
+      await sleep(400 + Math.random()*600);
+      try { return await fn(); } catch (e2){ err = e2; }
+    }
+    if (err && err.code === 'invalid_argument' && S.canWrite !== true){ S.readOnly = true; renderBanners(); }
+    throw err;
+  }
+}
+
+/* ---------- toasts ---------- */
+function toast(msg, opts={}){
+  const box = $('#toasts');
+  const t = document.createElement('div');
+  t.className = 'toast' + (opts.bad ? ' bad' : '');
+  const p = document.createElement('p'); p.textContent = msg; t.appendChild(p);
+  let timer;
+  if (opts.undo){
+    const b = document.createElement('button'); b.className = 'btn btn-sm'; b.type = 'button'; b.textContent = 'Отменить';
+    b.addEventListener('click', async () => {
+      b.disabled = true;
+      try { await write(opts.undo); p.textContent = 'Отменено.'; }
+      catch (e){ p.textContent = errText(e); }
+      clearTimeout(timer); timer = setTimeout(() => t.remove(), 2500);
+      b.remove();
+    });
+    t.appendChild(b);
+  }
+  box.appendChild(t);
+  while (box.children.length > 3) box.firstChild.remove();
+  timer = setTimeout(() => t.remove(), opts.undo ? 9000 : (opts.bad ? 7000 : 4000));
+}
+
+/* ---------- tabs ---------- */
+const TABS = ['komplekty','sklad','zakupka','istoriya','lom'];
+function showTab(tab, push){
+  tab = String(tab || '');
+  let kit = null;
+  if (tab.startsWith('kit-')){ kit = tab.slice(4) || null; tab = 'komplekty'; }
+  if (!TABS.includes(tab)) tab = 'komplekty';
+  S.tab = tab;
+  if (tab === 'komplekty') S.kitOpen = kit;
+  for (const t of TABS){
+    $('#view-' + t).hidden = t !== tab;
+    $('#tab-' + t).setAttribute('aria-selected', String(t === tab));
+  }
+  const h = kit ? 'kit-' + kit : tab;
+  if (push && location.hash !== '#' + h){ try { history.replaceState(null, '', '#' + h); } catch(e){ location.hash = h; } }
+  renderCurrent();
+}
+document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => { showTab(b.dataset.tab, true); window.scrollTo({top:0}); }));
+window.addEventListener('hashchange', () => showTab(location.hash.slice(1), false));
+
+/* ---------- banners ---------- */
+function samplesExist(){ return S.items.some(i => i.sample) || S.moves.some(m => m.sample) || S.scrap.some(s => s.sample) || S.kits.some(k => k.sample); }
+function renderBanners(){
+  const out = [];
+  if (S.conn === 'bad'){
+    out.push(`<div class="banner err" role="alert"><p><b>Общая база не подключилась.</b> Без неё ничего не сохранится. Обновите страницу. Если вы открыли файл не через claude.ai, откройте ссылку, которую прислал Георгий.</p></div>`);
+  }
+  if (S.db && (S.readOnly || S.canWrite === false)){
+    out.push(`<div class="banner err"><p><b>Только просмотр.</b> Вы видите склад, но записывать не можете. Попросите владельца открыть доступ «Редактор» на ваш email.</p></div>`);
+  }
+  if (S.db && samplesExist()){
+    const nI = S.items.filter(i => i.sample).length;
+    if (S.sampleConfirm){
+      out.push(`<div class="banner sample"><p><b>Удалить все примеры?</b> Уйдут ${nI} позиций с меткой «пример», их движения (включая ваши пробные), примеры комплектов и талонов лома. Ваши настоящие позиции и комплекты останутся.</p>
+        <button class="btn btn-warn btn-sm" type="button" data-act="samples-yes">Да, удалить примеры</button>
+        <button class="btn btn-ghost btn-sm" type="button" data-act="samples-no">Не удалять</button></div>`);
+    } else {
+      out.push(`<div class="banner sample"><p><b>Тут есть примеры</b> с меткой «пример», чтобы было на чём попробовать. Можно смело жать кнопки. Когда начнёте по-настоящему, удалите их одним нажатием.</p>
+        <button class="btn btn-soft btn-sm" type="button" data-act="samples-ask">Удалить примеры</button></div>`);
+    }
+  }
+  $('#banners').innerHTML = out.join('');
+  $('#banners').hidden = out.length === 0;
+}
+
+/* ---------- СКЛАД ---------- */
+function itemMatches(it, q){
+  if (!q) return true;
+  const hay = norm([it.name, it.cell, it.cat, it.note, it.unit].join(' '));
+  return norm(q).split(/\s+/).filter(Boolean).every(w => hay.includes(w));
+}
+function renderCatChips(){
+  const counts = {}; for (const it of S.items) counts[it.cat] = (counts[it.cat]||0) + 1;
+  const chips = [`<button class="chip" type="button" data-cat="" aria-pressed="${S.cat===''}">Все <span class="c num">${S.items.length}</span></button>`];
+  for (const c of CATS){ if (!counts[c]) continue; chips.push(`<button class="chip" type="button" data-cat="${esc(c)}" aria-pressed="${S.cat===c}">${esc(c)} <span class="c num">${counts[c]}</span></button>`); }
+  $('#catChips').innerHTML = S.items.length ? chips.join('') : '';
+}
+function itemCard(it){
+  const label = esc(it.name);
+  const dis = canWriteNow() ? '' : ' disabled';
+  return `<article class="item">
+    <button class="item-main" type="button" data-open="${esc(it.id)}">
+      <span class="item-top">${cellChip(it.cell)}${it.sample ? '<span class="tag">пример</span>' : ''}</span>
+      <span class="item-name">${label}</span>
+      <span class="item-bottom">${qtyHtml(it)}${resvHtml(it)}${statusChip(it)}${hasMin(it) ? `<span class="muted num" style="font-size:14px;font-weight:700">мин. ${fmtN(Number(it.min))}</span>` : ''}</span>
+    </button>
+    <div class="item-quick">
+      <button class="btn btn-soft round" type="button" data-quick="1" data-id="${esc(it.id)}" aria-label="Плюс 1: ${label}"${dis}>+1</button>
+      <button class="btn btn-soft round" type="button" data-quick="-1" data-id="${esc(it.id)}" aria-label="Минус 1: ${label}"${dis}>−1</button>
+    </div>
+  </article>`;
+}
+function emptyBox(icon, title, text, btn){
+  return `<div class="card empty"><span class="blob">${ICONS[icon]||ICONS.box}</span><h3>${esc(title)}</h3><p>${text}</p>${btn||''}</div>`;
+}
+function renderSklad(){
+  renderCatChips();
+  const out = $('#itemsOut');
+  if (!S.loaded.items){
+    out.innerHTML = emptyBox('box', S.conn === 'bad' ? 'Склад не загрузился' : 'Загружаем склад…', S.conn === 'bad' ? 'Нет связи с общей базой. Обновите страницу.' : 'Секунду, подтягиваем общие данные.');
+    return;
+  }
+  if (!S.items.length){
+    out.innerHTML = emptyBox('box', 'Пока нет ни одной позиции', 'Нажмите «Новая позиция» и добавьте первую: например, «Флекс R8 8"», ячейка C-1, минимум 1 коробка.',
+      `<button class="btn btn-main" type="button" data-act="new-item">Добавить первую позицию</button>`);
+    return;
+  }
+  const list = S.items.filter(it => (!S.cat || it.cat === S.cat) && itemMatches(it, S.q));
+  if (!list.length){
+    out.innerHTML = emptyBox('box', 'Ничего не нашли', S.q ? `По запросу «${esc(S.q)}» ничего нет${S.cat ? ` в разделе «${esc(S.cat)}»` : ''}. Проверьте написание или поищите по ячейке, например A-1.` : 'В этой категории пока пусто.',
+      `<button class="btn btn-soft" type="button" data-act="clear-search">Показать всё</button>`);
+    return;
+  }
+  const groups = [];
+  const catOf = i => (i.cat && String(i.cat).trim()) || 'Без категории';
+  const cats = [...CATS, ...new Set(list.map(catOf).filter(c => !CATS.includes(c)))];
+  for (const c of cats){
+    const g = sortedItems(list.filter(i => catOf(i) === c));
+    if (!g.length) continue;
+    groups.push(`<div class="group"><h2>${esc(c)} <span class="muted num">${g.length}</span></h2><div class="grid">${g.map(itemCard).join('')}</div></div>`);
+  }
+  out.innerHTML = groups.join('');
+}
+$('#q').addEventListener('input', e => { S.q = e.target.value.trim(); renderSklad(); });
+$('#catChips').addEventListener('click', e => { const b = e.target.closest('[data-cat]'); if (!b) return; S.cat = b.dataset.cat; renderSklad(); });
+$('#newItemBtn').addEventListener('click', () => openItemForm(null));
+$('#newMoveBtn').addEventListener('click', () => openMoveForm({}));
+
+/* ---------- ЗАКУПКА ---------- */
+function buyList(){ return sortedItems(S.items.filter(needsBuy)); }
+function renderBuy(){
+  const out = $('#buyOut');
+  const list = buyList();
+  const unknown = sortedItems(S.items.filter(i => !stockOf(i.id).known));
+  const badge = $('#buyBadge'); badge.hidden = !list.length; badge.textContent = list.length;
+  if (S.tab !== 'zakupka') return;
+  $('#copyBuyBtn').disabled = !list.length;
+  if (!S.loaded.items){ out.innerHTML = emptyBox('box', 'Загружаем…', 'Подтягиваем общие данные.'); return; }
+  const parts = [];
+  if (!list.length){
+    parts.push(emptyBox('check', 'Всё в норме', 'Сейчас нет позиций на минимуме или ниже. Если минимум не задан, позиция сюда не попадёт, пока не закончится совсем.'));
+  } else {
+    parts.push(`<ul class="list">${list.map(it => {
+      const st = stockOf(it.id);
+      return `<li class="card buy"><div class="buy-info">
+          <span class="item-top">${cellChip(it.cell)}<span class="muted" style="font-size:14px">${esc(it.cat||'')}</span>${it.sample ? '<span class="tag">пример</span>' : ''}</span>
+          <b style="font-size:17px;overflow-wrap:anywhere">${esc(it.name)}</b>
+          <span class="item-bottom"><span class="num" style="font-weight:800">Осталось ${fmtN(st.qty)} ${esc(unitS(it.unit))}</span>${resvHtml(it)}${hasMin(it) ? `<span class="muted num">мин. ${fmtN(Number(it.min))}</span>` : ''}${statusChip(it)}</span>
+        </div>
+        <button class="btn btn-soft" type="button" data-move="in" data-id="${esc(it.id)}"${canWriteNow()?'':' disabled'}>${ICONS.in}Пришло</button></li>`;
+    }).join('')}</ul>`);
+  }
+  if (unknown.length){
+    parts.push(`<div class="group" style="margin-top:8px"><h2>Остаток неизвестен <span class="muted num">${unknown.length}</span></h2>
+      <p class="lead">Эти позиции ещё ни разу не посчитали, поэтому мы не можем сказать, пора ли их закупать. Посчитайте на полке и запишите «Пересчёт».</p>
+      <ul class="list">${unknown.map(it => `<li class="card buy" style="padding:12px 14px"><div class="buy-info"><span class="item-top">${cellChip(it.cell)}${it.sample ? '<span class="tag">пример</span>' : ''}</span><b style="overflow-wrap:anywhere">${esc(it.name)}</b></div>
+        <button class="btn btn-soft" type="button" data-move="count" data-id="${esc(it.id)}"${canWriteNow()?'':' disabled'}>${ICONS.count}Пересчитать</button></li>`).join('')}</ul></div>`);
+  }
+  out.innerHTML = parts.join('');
+}
+$('#copyBuyBtn').addEventListener('click', async () => {
+  const list = buyList(); if (!list.length) return;
+  const today = df.format(new Date());
+  const text = `Закупка FixPro, ${today}\n` + list.map(it => {
+    const st = stockOf(it.id);
+    return `— ${it.name}${it.cell ? ` [${String(it.cell).toUpperCase()}]` : ''}: осталось ${fmtN(st.qty)} ${unitS(it.unit)}${hasMin(it) ? `, мин. ${fmtN(Number(it.min))}` : ''}`;
+  }).join('\n');
+  try { await navigator.clipboard.writeText(text); toast('Список скопирован. Вставьте его в сообщение поставщику.'); }
+  catch (e){
+    const ta = $('#copyFallback'); ta.value = text; ta.classList.remove('sr'); ta.style.cssText = 'width:100%;min-height:160px;border-radius:18px;padding:12px;border:1.5px solid var(--line-strong);background:var(--card)';
+    ta.removeAttribute('aria-hidden'); ta.focus(); ta.select();
+    toast('Не получилось скопировать само. Текст выделен ниже — скопируйте вручную.');
+  }
+});
+
+/* ---------- ИСТОРИЯ ---------- */
+function whoOf(m){ return (m.byName || '').trim() || 'Без имени'; }
+function whereOf(m){
+  const bits = [];
+  if (m.job) bits.push('заказ #' + m.job);
+  if (m.truck) bits.push('трак ' + m.truck);
+  return bits.join(', ');
+}
+function moveLine(m, withItem){
+  const it = itemById(m.itemId);
+  const unit = unitS((it && it.unit) || m.unit);
+  const t = TYPES[m.type] || {label:m.type};
+  let tlabel = t.label, cls = 't-' + m.type;
+  if (m.type === 'quick') tlabel = 'Быстро ' + (Number(m.qty) > 0 ? '+1' : '−1');
+  if (m.type === 'job') tlabel = 'На заказ';
+  if (m.type === 'truck') tlabel = 'В трак';
+  let amount;
+  if (m.type === 'count') amount = `стало ${fmtN(Number(m.qty)||0)} ${esc(unit)}`;
+  else { const d = delta(m); amount = `${d>0?'+':''}${fmtN(d)} ${esc(unit)}`; }
+  const extra = [];
+  if (m.type === 'in' && m.supplier) extra.push('от ' + esc(m.supplier));
+  const w = whereOf(m); if (w) extra.push((m.type === 'ret' ? 'с: ' : '') + esc(w));
+  if (m.reason) extra.push('причина: ' + esc(m.reason));
+  const name = withItem ? `<b>${esc((it && it.name) || m.itemName || 'Удалённая позиция')}</b>` : '';
+  const meta = [fmtAt(m.at), esc(whoOf(m))];
+  if (m.note) meta.push('«' + esc(m.note) + '»');
+  if (m.sample) meta.push('пример');
+  let del = '';
+  if (withItem && canWriteNow()){
+    del = S.confirmDel === m.id
+      ? `<div class="del-row"><button class="btn btn-warn btn-sm" type="button" data-delmove-yes="${esc(m.id)}">Да, удалить</button><button class="btn btn-ghost btn-sm" type="button" data-delmove-no="1">Нет</button></div>`
+      : `<div class="del-row"><button class="btn btn-ghost btn-sm" type="button" data-delmove="${esc(m.id)}" aria-label="Удалить запись">Удалить</button></div>`;
+  }
+  return `<li class="move"><span class="mtype ${cls}">${esc(tlabel)}</span>
+    <div class="move-body"><div class="move-line">${name}<span class="delta num">${amount}</span>${extra.length ? `<span>${extra.join(' · ')}</span>` : ''}</div>
+    <div class="meta num">${meta.join(' · ')}</div></div>${del}</li>`;
+}
+function fillSelect(sel, opts, cur){
+  const html = opts.map(([v,l]) => `<option value="${esc(v)}"${v===cur?' selected':''}>${esc(l)}</option>`).join('');
+  if (sel.dataset.h !== html){ sel.innerHTML = html; sel.dataset.h = html; }
+  sel.value = cur;
+}
+function renderHist(){
+  if (S.tab !== 'istoriya') return;
+  const H = S.hist;
+  const itemOpts = [['', 'Все позиции']];
+  const seen = new Set();
+  for (const it of sortedItems(S.items)){ itemOpts.push([it.id, it.name]); seen.add(it.id); }
+  const gone = new Map(); for (const m of S.moves) if (!seen.has(m.itemId) && !gone.has(m.itemId)) gone.set(m.itemId, m.itemName || 'Удалённая позиция');
+  for (const [id, n] of gone) itemOpts.push([id, n + ' (удалена)']);
+  if (H.item && !itemOpts.some(o => o[0] === H.item)) H.item = '';
+  fillSelect($('#hItem'), itemOpts, H.item);
+  const whos = [...new Set(S.moves.map(whoOf))].sort((a,b) => a.localeCompare(b,'ru'));
+  if (H.who && !whos.includes(H.who)) H.who = '';
+  fillSelect($('#hWho'), [['', 'Все люди'], ...whos.map(w => [w, w])], H.who);
+  fillSelect($('#hType'), [['', 'Все типы'], ...Object.keys(TYPES).map(k => [k, TYPES[k].label])], H.type);
+
+  const out = $('#histOut');
+  if (!S.loaded.moves){ out.innerHTML = emptyBox('clock', 'Загружаем историю…', 'Подтягиваем общие данные.'); return; }
+  if (!S.moves.length){ out.innerHTML = emptyBox('clock', 'Движений пока нет', 'Они появятся здесь, когда кто-то запишет приход, выдачу, возврат, списание или пересчёт.'); return; }
+  const q = norm(H.q), wq = norm(H.where).replace(/#/g,'').trim();
+  const list = S.moves.filter(m => {
+    if (H.item && m.itemId !== H.item) return false;
+    if (H.who && whoOf(m) !== H.who) return false;
+    if (H.type && m.type !== H.type) return false;
+    if (wq && !(norm(m.job).includes(wq) || norm(m.truck).includes(wq))) return false;
+    if (q){
+      const it = itemById(m.itemId);
+      const hay = norm([(it && it.name) || m.itemName, m.note, m.reason, m.supplier, m.job, m.truck, whoOf(m), (TYPES[m.type]||{}).label].join(' '));
+      if (!q.split(/\s+/).filter(Boolean).every(w => hay.includes(w))) return false;
+    }
+    return true;
+  }).sort((a,b) => (b.at||0) - (a.at||0));
+  if (!list.length){ out.innerHTML = emptyBox('clock', 'Ничего не нашли', 'Под эти фильтры записей нет. Уберите один из фильтров.', `<button class="btn btn-soft" type="button" data-act="clear-hist">Сбросить фильтры</button>`); return; }
+  const shown = list.slice(0, S.histLimit);
+  out.innerHTML = `<p class="muted num" style="margin-bottom:8px">Найдено записей: ${list.length}</p>
+    <ul class="list card" style="gap:0;padding:4px 16px">${shown.map(m => moveLine(m, true)).join('')}</ul>
+    ${list.length > shown.length ? `<div style="text-align:center;margin-top:12px"><button class="btn btn-soft" type="button" data-act="more-hist">Показать ещё</button></div>` : ''}`;
+}
+['hq','hWhere'].forEach(id => $('#'+id).addEventListener('input', e => { S.hist[id === 'hq' ? 'q' : 'where'] = e.target.value; S.histLimit = 200; renderHist(); }));
+[['hItem','item'],['hWho','who'],['hType','type']].forEach(([id,k]) => $('#'+id).addEventListener('change', e => { S.hist[k] = e.target.value; S.histLimit = 200; renderHist(); }));
+
+/* ---------- МЕТАЛЛОЛОМ ---------- */
+function todayStr(){ const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+$('#sCat').innerHTML = SCRAP_CATS.map(c => `<option>${esc(c)}</option>`).join('');
+$('#sDate').value = todayStr();
+function monthName(ym){
+  const [y, m] = ym.split('-').map(Number);
+  const s = new Intl.DateTimeFormat('ru-RU', {month:'long', year:'numeric'}).format(new Date(y, m-1, 1)).replace(' г.', '');
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+function renderScrap(){
+  if (S.tab !== 'lom') return;
+  const tot = $('#scrapTotals'), lst = $('#scrapList');
+  $('#scrapSave').disabled = !canWriteNow();
+  if (!S.loaded.scrap){ tot.innerHTML = emptyBox('scale', 'Загружаем…', 'Подтягиваем талоны.'); lst.innerHTML = ''; return; }
+  if (!S.scrap.length){ tot.innerHTML = emptyBox('scale', 'Талонов пока нет', 'Добавьте первый талон слева: дата, что сдали, вес и сумма. Итоги по месяцам появятся здесь.'); lst.innerHTML = ''; return; }
+  const byMonth = new Map();
+  for (const s of S.scrap){
+    const ym = String(s.date || '').slice(0,7) || 'без даты';
+    if (!byMonth.has(ym)) byMonth.set(ym, {lb:0, usd:0, n:0, cats:new Map()});
+    const M = byMonth.get(ym); M.lb += Number(s.lb)||0; M.usd += Number(s.usd)||0; M.n++;
+    const c = M.cats.get(s.cat) || {lb:0, usd:0}; c.lb += Number(s.lb)||0; c.usd += Number(s.usd)||0; M.cats.set(s.cat, c);
+  }
+  const months = [...byMonth.keys()].sort().reverse();
+  tot.innerHTML = months.map(ym => {
+    const M = byMonth.get(ym);
+    const rows = [...M.cats.entries()].sort((a,b) => b[1].usd - a[1].usd).map(([c, v]) =>
+      `<tr><td>${esc(c)}</td><td class="r">${fmtN(v.lb)}</td><td class="r">${money.format(v.usd)}</td><td class="r">${v.lb ? money.format(v.usd / v.lb) : '—'}</td></tr>`).join('');
+    return `<div class="card month"><div class="month-head"><h3>${esc(ym === 'без даты' ? 'Без даты' : monthName(ym))}</h3><span class="num" style="font-weight:900">${money.format(M.usd)} · ${fmtN(M.lb)} lb</span></div>
+      <div class="tbl-wrap"><table><thead><tr><th>Вид</th><th class="r">lb</th><th class="r">$</th><th class="r">$/lb</th></tr></thead><tbody>${rows}</tbody></table></div>
+      <p class="muted num" style="font-size:14px">Талонов: ${M.n} · в среднем ${M.lb ? money.format(M.usd / M.lb) : '—'} за lb</p></div>`;
+  }).join('');
+  const sorted = [...S.scrap].sort((a,b) => String(b.date||'').localeCompare(String(a.date||'')) || (b.at||0) - (a.at||0));
+  lst.innerHTML = `<div class="group"><h2>Все талоны <span class="muted num">${sorted.length}</span></h2><ul class="list card" style="gap:0;padding:4px 16px">${sorted.map(s => {
+    const d = s.date ? df.format(new Date(s.date + 'T12:00:00')) : 'без даты';
+    const del = !canWriteNow() ? '' : (S.scrapConfirm === s.id
+      ? `<div class="del-row"><button class="btn btn-warn btn-sm" type="button" data-delscrap-yes="${esc(s.id)}">Да, удалить</button><button class="btn btn-ghost btn-sm" type="button" data-delscrap-no="1">Нет</button></div>`
+      : `<div class="del-row"><button class="btn btn-ghost btn-sm" type="button" data-delscrap="${esc(s.id)}">Удалить</button></div>`);
+    return `<li class="move"><span class="mtype t-count">${esc(s.cat || '—')}</span><div class="move-body"><div class="move-line"><b class="num">${fmtN(Number(s.lb)||0)} lb · ${money.format(Number(s.usd)||0)}</b>${s.note ? `<span>«${esc(s.note)}»</span>` : ''}</div>
+      <div class="meta num">${esc(d)} · ${esc(whoOf(s))}${s.sample ? ' · пример' : ''}</div></div>${del}</li>`;
+  }).join('')}</ul></div>`;
+}
+$('#scrapForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const errBox = $('#scrapErr'); errBox.innerHTML = '';
+  if (!ensureCanWrite()) return;
+  const lb = parseNum($('#sLb').value), usd = parseNum($('#sUsd').value), date = $('#sDate').value;
+  const errs = [];
+  if (!date) errs.push('Укажите дату талона.');
+  if (lb === null || Number.isNaN(lb) || lb <= 0) errs.push('Укажите вес в фунтах, число больше нуля.');
+  if (usd === null || Number.isNaN(usd) || usd < 0) errs.push('Укажите сумму в долларах (можно 0).');
+  const sig = signature();
+  if (!sig){ openNameSheet(() => $('#scrapForm').requestSubmit()); return; }
+  if (errs.length){ errBox.innerHTML = `<p class="err-text">${errs.map(esc).join('<br>')}</p>`; return; }
+  const btn = $('#scrapSave'); btn.disabled = true; btn.textContent = 'Сохраняем…';
+  try {
+    const ref = S.db.collection('scrap').doc();
+    await write(() => ref.set({date, cat:$('#sCat').value, lb:round2(lb), usd:round2(usd), note:$('#sNote').value.trim(), at:Date.now(), byName:sig, byId:S.myId || null, sample:false}));
+    $('#sLb').value = ''; $('#sUsd').value = ''; $('#sNote').value = '';
+    toast(`Талон добавлен: ${fmtN(lb)} lb, ${money.format(usd)}.`, {undo: () => ref.delete()});
+  } catch (err){ errBox.innerHTML = `<p class="err-text">${esc(errText(err))}</p>`; }
+  finally { btn.disabled = !canWriteNow(); btn.textContent = 'Добавить талон'; }
+});
+
+/* ---------- sheet ---------- */
+let sheetOnClose = null, lastFocus = null, sheetKind = null, sheetItemId = null;
+function openSheet(html, kind, itemId){
+  lastFocus = document.activeElement;
+  sheetKind = kind; sheetItemId = itemId || null;
+  $('#sheet').innerHTML = html;
+  $('#overlay').hidden = false;
+  document.body.style.overflow = 'hidden';
+  const f = $('#sheet').querySelector('[autofocus]') || $('#sheet').querySelector('.x');
+  setTimeout(() => f && f.focus(), 30);
+}
+function closeSheet(){
+  $('#overlay').hidden = true; $('#sheet').innerHTML = ''; document.body.style.overflow = '';
+  sheetKind = null; sheetItemId = null;
+  if (lastFocus && lastFocus.focus) try { lastFocus.focus(); } catch(e){}
+}
+$('#overlay').addEventListener('click', e => { if (e.target.id === 'overlay') closeSheet(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#overlay').hidden) closeSheet(); });
+const sheetHead = (title, pre) => `<div class="sheet-head">${pre||''}<h2 id="sheetTitle">${title}</h2><button class="x" type="button" data-act="close" aria-label="Закрыть">×</button></div>`;
+
+/* ----- name sheet ----- */
+function openNameSheet(after){
+  const cur = signature();
+  openSheet(`${sheetHead('Как вас подписать?')}
+    <p class="muted">Имя видно в истории рядом с каждой записью: кто взял, кто привёз. Запоминается на этом устройстве.</p>
+    <form id="nameForm" novalidate>
+      <div class="field"><label for="nmIn">Ваше имя</label><input id="nmIn" type="text" value="${esc(cur)}" placeholder="например, Татьяна" autocomplete="given-name" autofocus maxlength="40"></div>
+      <div id="nmErr"></div>
+      <div class="form-actions"><button class="btn btn-ghost" type="button" data-act="close">Отмена</button><button class="btn btn-main" type="submit">Готово</button></div>
+    </form>`, 'name');
+  $('#nameForm').addEventListener('submit', e => {
+    e.preventDefault();
+    const v = $('#nmIn').value.trim();
+    if (!v){ $('#nmErr').innerHTML = '<p class="err-text">Напишите имя, чтобы было видно, кто записал.</p>'; return; }
+    lsSet(NAME_KEY, v);
+    S.typedName = v;
+    renderWho(); closeSheet();
+    if (after) after();
+  });
+}
+$('#whoBtn').addEventListener('click', () => openNameSheet(null));
+
+/* ----- item sheet ----- */
+function itemSheetBody(it){
+  const st = stockOf(it.id);
+  const moves = S.moves.filter(m => m.itemId === it.id).sort((a,b) => (b.at||0) - (a.at||0)).slice(0, 8);
+  const can = canWriteNow();
+  const hint = !st.known ? `<p class="hint" style="flex-basis:100%">Остаток ещё не посчитан. Посчитайте на полке и запишите «Пересчёт», дальше будем считать сами.</p>` : '';
+  return `<div class="stock-big">${qtyHtml(it, true)}${statusChip(it)}${hasMin(it) ? `<span class="muted num" style="font-weight:700">мин. ${fmtN(Number(it.min))}</span>` : '<span class="muted" style="font-weight:700">минимум не задан</span>'}${hint}</div>${resvBox(it)}
+    <div class="types">${FORM_TYPES.map(t => `<button class="type t-${t}" type="button" data-move="${t}" data-id="${esc(it.id)}"${can?'':' disabled'}>${ICONS[t]}${esc(TYPES[t].label)}</button>`).join('')}</div>
+    <dl class="kv"><dt>Категория</dt><dd>${esc(it.cat||'—')}</dd><dt>Единица</dt><dd>${esc(it.unit||'шт')}</dd><dt>Ячейка</dt><dd>${cellChip(it.cell)}</dd>${it.note ? `<dt>Заметка</dt><dd>${esc(it.note)}</dd>` : ''}</dl>
+    <div class="group" style="gap:8px"><h3 style="font-size:18px">Последние движения</h3>
+      ${moves.length ? `<ul class="list mini-moves" style="gap:0">${moves.map(m => moveLine(m, false)).join('')}</ul>` : '<p class="muted">Движений ещё не было.</p>'}</div>
+    ${can ? (S.confirmItemDel === it.id
+      ? `<div class="banner err"><p><b>Удалить «${esc(it.name)}»?</b> Позиция пропадёт со склада. Записи в истории останутся.</p><button class="btn btn-warn btn-sm" type="button" data-act="del-item-yes">Да, удалить</button><button class="btn btn-ghost btn-sm" type="button" data-act="del-item-no">Нет</button></div>`
+      : `<div class="form-actions"><button class="btn btn-ghost" type="button" data-act="del-item">Удалить позицию</button><button class="btn btn-soft" type="button" data-act="edit-item">Изменить позицию</button></div>`) : ''}`;
+}
+function openItemSheet(id){
+  const it = itemById(id); if (!it) return;
+  S.confirmItemDel = null;
+  openSheet(`${sheetHead(esc(it.name), '')}<div class="item-top">${cellChip(it.cell)}<span class="muted">${esc(it.cat||'')}</span>${it.sample ? '<span class="tag">пример</span>' : ''}</div><div id="itemSheetBody" class="group" style="gap:16px">${itemSheetBody(it)}</div>`, 'item', id);
+}
+function refreshItemSheet(){
+  if (sheetKind !== 'item') return;
+  const it = itemById(sheetItemId);
+  if (!it){ closeSheet(); toast('Эту позицию удалили.'); return; }
+  const body = $('#itemSheetBody'); if (body) body.innerHTML = itemSheetBody(it);
+}
+
+/* ----- item form ----- */
+function openItemForm(id){
+  if (!ensureCanWrite()) return;
+  const it = id ? itemById(id) : null;
+  const v = it || {name:'', cat:S.cat || '', unit:'шт', cell:'', min:'', note:''};
+  openSheet(`${sheetHead(it ? 'Изменить позицию' : 'Новая позиция')}
+    <form id="itemForm" novalidate>
+      <div class="field"><label for="fName">Название</label><input id="fName" type="text" value="${esc(v.name)}" placeholder='например, Флекс R8 8"' autocomplete="off" autofocus maxlength="80"><div id="dupHint"></div></div>
+      <div class="field"><span class="lbl" id="catLbl">Категория</span><div class="chips" role="group" aria-labelledby="catLbl">${CATS.map(c => `<button class="chip" type="button" data-fcat="${esc(c)}" aria-pressed="${v.cat===c}">${esc(c)}</button>`).join('')}</div></div>
+      <div class="field"><span class="lbl" id="unitLbl">Единица</span><div class="chips" role="group" aria-labelledby="unitLbl">${UNITS.map(u => `<button class="chip" type="button" data-funit="${esc(u)}" aria-pressed="${(v.unit||'шт')===u}">${esc(u)}</button>`).join('')}</div></div>
+      <div class="row2">
+        <div class="field"><label for="fCell">Ячейка / место</label><input id="fCell" type="text" value="${esc(v.cell)}" placeholder="A-1" autocomplete="off" maxlength="12"><span class="hint">Цвет метки по букве ряда: <span id="cellPrev">${cellChip(v.cell)}</span></span></div>
+        <div class="field"><label for="fMin">Минимум</label><input id="fMin" type="text" inputmode="decimal" value="${v.min === null || v.min === undefined ? '' : esc(v.min)}" placeholder="например 1" autocomplete="off"><span class="hint">Когда останется столько или меньше, позиция появится в «Пора закупать». Было 2 коробки, осталась 1 → ставьте 1.</span></div>
+      </div>
+      ${it ? `<p class="hint">Количество здесь не меняется. Оно считается из движений: приход, выдача, возврат, списание, пересчёт.</p>`
+           : `<div class="field"><label for="fStart">Сколько сейчас на складе?</label><input id="fStart" type="text" inputmode="decimal" placeholder="не знаю" autocomplete="off"><span class="hint">Оставьте пустым, если не знаете. Тогда будет «неизвестно», а не ноль.</span></div>`}
+      <div class="field"><label for="fNote">Заметка</label><input id="fNote" type="text" value="${esc(v.note)}" placeholder="размер, бренд, где брать" autocomplete="off" maxlength="200"></div>
+      <div id="itemErr"></div>
+      <div class="form-actions"><button class="btn btn-ghost" type="button" data-act="close">Отмена</button><button class="btn btn-main" type="submit" id="itemSave">${it ? 'Сохранить' : 'Добавить позицию'}</button></div>
+    </form>`, 'itemform', id);
+  const F = {cat:v.cat, unit:v.unit || 'шт'};
+  const form = $('#itemForm');
+  form.addEventListener('click', e => {
+    const c = e.target.closest('[data-fcat]'); if (c){ F.cat = c.dataset.fcat; form.querySelectorAll('[data-fcat]').forEach(b => b.setAttribute('aria-pressed', String(b === c))); }
+    const u = e.target.closest('[data-funit]'); if (u){ F.unit = u.dataset.funit; form.querySelectorAll('[data-funit]').forEach(b => b.setAttribute('aria-pressed', String(b === u))); }
+  });
+  $('#fCell').addEventListener('input', e => { $('#cellPrev').innerHTML = cellChip(e.target.value); });
+  $('#fName').addEventListener('input', e => {
+    const n = norm(e.target.value.trim());
+    const dup = n && S.items.find(x => norm(x.name) === n && x.id !== id);
+    $('#dupHint').innerHTML = dup ? `<p class="soft-warn">Такая позиция уже есть: «${esc(dup.name)}» (${esc(String(dup.cell||'без ячейки').toUpperCase())}). Можно сохранить и вторую, если это правда другое.</p>` : '';
+  });
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    const errs = [];
+    const name = $('#fName').value.trim();
+    const min = parseNum($('#fMin').value);
+    const start = it ? null : parseNum($('#fStart').value);
+    if (!name) errs.push('Напишите название позиции.');
+    if (!F.cat) errs.push('Выберите категорию.');
+    if (Number.isNaN(min) || (min !== null && min < 0)) errs.push('Минимум — это число, например 1 или 2. Можно оставить пустым.');
+    if (Number.isNaN(start) || (start !== null && start < 0)) errs.push('«Сколько сейчас» — число, например 3. Или оставьте пустым.');
+    const sig = signature();
+    if (!errs.length && !sig){ openNameSheet(() => openItemForm(id)); return; }
+    if (errs.length){ $('#itemErr').innerHTML = `<p class="err-text">${errs.map(esc).join('<br>')}</p>`; return; }
+    const btn = $('#itemSave'); btn.disabled = true; btn.textContent = 'Сохраняем…';
+    const data = {name, cat:F.cat, unit:F.unit, cell:$('#fCell').value.trim().toUpperCase(), min: min === null ? null : round2(min), note:$('#fNote').value.trim()};
+    try {
+      if (it){
+        await write(() => S.db.doc('items/' + it.id).update(data));
+        closeSheet(); toast('Позиция сохранена.');
+        openItemSheet(it.id);
+      } else {
+        const ref = S.db.collection('items').doc();
+        await write(() => ref.set(clean({...data, sample:false, createdAt:Date.now(), byName:sig, byId:S.myId || null})));
+        if (start !== null){
+          const mref = S.db.collection('moves').doc();
+          await write(() => mref.set({itemId:ref.id, itemName:name, unit:F.unit, type:'count', qty:round2(start), job:'', truck:'', supplier:'', reason:'Начальный остаток', note:'', at:Date.now(), byName:sig, byId:S.myId || null, sample:false}));
+        }
+        closeSheet();
+        toast(`Добавлено: ${name}.` + (start === null ? ' Остаток пока неизвестен.' : ''));
+        S.q = ''; $('#q').value = ''; S.cat = '';
+        if (S.tab !== 'sklad') showTab('sklad', true);
+      }
+    } catch (err){ $('#itemErr').innerHTML = `<p class="err-text">${esc(errText(err))}</p>`; btn.disabled = false; btn.textContent = it ? 'Сохранить' : 'Добавить позицию'; }
+  });
+}
+
+/* ----- move form ----- */
+function recentValues(field, type){
+  const counts = new Map();
+  for (const m of S.moves){ const v = (m[field] || '').trim(); if (!v || (type && m.type !== type)) continue; counts.set(v, (counts.get(v)||0) + 1); }
+  return [...counts.entries()].sort((a,b) => b[1] - a[1]).slice(0, 6).map(x => x[0]);
+}
+function openMoveForm({itemId, type}){
+  if (!ensureCanWrite()) return;
+  const M = {itemId: itemId || '', type: type || 'in', retFrom:'truck'};
+  const trucks = [...new Set([...recentValues('truck'), 'T1', 'T2', 'T3'])].slice(0, 6);
+  const suppliers = recentValues('supplier', 'in');
+  openSheet(`${sheetHead('Записать движение')}
+    <form id="moveForm" novalidate>
+      <div class="field"><span class="lbl">Позиция</span><div id="mvItem"></div></div>
+      <div class="field"><span class="lbl" id="typeLbl">Что происходит?</span><div class="types" role="group" aria-labelledby="typeLbl">${FORM_TYPES.map(t => `<button class="type t-${t}" type="button" data-mtype="${t}" aria-pressed="${M.type===t}">${ICONS[t]}${esc(TYPES[t].label)}</button>`).join('')}</div></div>
+      <div class="field"><label for="mQty" id="qtyLbl">Сколько?</label><input id="mQty" type="text" inputmode="decimal" autocomplete="off" placeholder="1"><div class="chips" id="qtyChips">${[1,2,5,10].map(n => `<button class="chip" type="button" data-qn="${n}">${n}</button>`).join('')}</div></div>
+      <div id="mvExtra" class="group" style="gap:16px"></div>
+      <div class="field"><label for="mNote">Заметка</label><input id="mNote" type="text" placeholder="по желанию" autocomplete="off" maxlength="200"></div>
+      <div class="field"><label for="mWho">Кто записывает</label><input id="mWho" type="text" value="${esc(signature())}" placeholder="ваше имя" autocomplete="given-name" maxlength="40"></div>
+      <div id="mvWarn"></div><div id="mvErr"></div>
+      <div class="form-actions"><button class="btn btn-ghost" type="button" data-act="close">Отмена</button><button class="btn btn-main" type="submit" id="mvSave">Сохранить</button></div>
+    </form>`, 'move');
+  const form = $('#moveForm');
+  const extraVals = {supplier:'', job:'', truck:'', reason:''};
+
+  function renderItemPick(focusSearch){
+    const box = $('#mvItem');
+    const it = itemById(M.itemId);
+    if (it){
+      box.innerHTML = `<div class="picked">${cellChip(it.cell)}<b>${esc(it.name)}</b><span class="num" style="font-weight:800">${stockLine(it)}</span><button class="btn btn-ghost btn-sm" type="button" data-act="change-item">Сменить</button></div>`;
+    } else {
+      box.innerHTML = `<input id="mSearch" type="search" placeholder="Начните писать: флекс, фильтр, A-1" autocomplete="off" style="width:100%;min-height:52px;border-radius:18px;border:1.5px solid var(--line-strong);background:var(--card);padding:12px 16px;font-size:17px"><div class="pick-list" id="pickList"></div>`;
+      const inp = $('#mSearch');
+      const draw = () => {
+        const q = inp.value.trim();
+        const list = sortedItems(S.items.filter(x => itemMatches(x, q))).slice(0, 7);
+        $('#pickList').innerHTML = list.length ? list.map(x => `<button class="pick" type="button" data-pick="${esc(x.id)}">${cellChip(x.cell)}<span class="n">${esc(x.name)}</span><span class="muted num" style="font-size:14px">${stockOf(x.id).known ? fmtN(stockOf(x.id).qty) + ' ' + esc(unitS(x.unit)) : '?'}</span></button>`).join('')
+          : `<p class="muted">${S.items.length ? 'Не нашли. Проверьте написание или добавьте новую позицию на вкладке «Склад».' : 'На складе пока нет позиций. Сначала добавьте позицию.'}</p>`;
+      };
+      inp.addEventListener('input', draw); draw();
+      if (focusSearch) setTimeout(() => inp.focus(), 30);
+    }
+    renderWarn();
+  }
+  function pillRow(field, values, cur){
+    return values.length ? `<div class="chips">${values.map(v => `<button class="chip" type="button" data-fill="${field}" data-val="${esc(v)}" aria-pressed="${cur===v}">${esc(v)}</button>`).join('')}</div>` : '';
+  }
+  function renderExtra(){
+    const t = M.type;
+    $('#qtyLbl').textContent = t === 'count' ? 'Сколько сейчас по факту на полке?' : 'Сколько?';
+    let h = '';
+    if (t === 'in') h = `<div class="field"><label for="xSupplier">Поставщик</label><input id="xSupplier" data-x="supplier" type="text" value="${esc(extraVals.supplier)}" placeholder="например, Johnstone Supply" autocomplete="off">${pillRow('supplier', suppliers, extraVals.supplier)}</div>`;
+    if (t === 'job') h = `<div class="field"><label for="xJob">Номер заказа</label><input id="xJob" data-x="job" type="text" value="${esc(extraVals.job)}" placeholder="например, 4512" autocomplete="off" inputmode="numeric"><span class="hint">Выдача на конкретный заказ клиента.</span></div>`;
+    if (t === 'truck') h = `<div class="field"><label for="xTruck">Какой трак</label><input id="xTruck" data-x="truck" type="text" value="${esc(extraVals.truck)}" placeholder="например, T2" autocomplete="off">${pillRow('truck', trucks, extraVals.truck)}<span class="hint">Запас в машину техника, без привязки к заказу.</span></div>`;
+    if (t === 'ret') h = `<div class="field"><span class="lbl">Откуда вернули</span><div class="chips">${[['truck','Из трака'],['job','С заказа'],['none','Не важно']].map(([k,l]) => `<button class="chip" type="button" data-retfrom="${k}" aria-pressed="${M.retFrom===k}">${l}</button>`).join('')}</div></div>`
+      + (M.retFrom === 'truck' ? `<div class="field"><label for="xTruck">Какой трак</label><input id="xTruck" data-x="truck" type="text" value="${esc(extraVals.truck)}" placeholder="например, T2" autocomplete="off">${pillRow('truck', trucks, extraVals.truck)}</div>` : '')
+      + (M.retFrom === 'job' ? `<div class="field"><label for="xJob">Номер заказа</label><input id="xJob" data-x="job" type="text" value="${esc(extraVals.job)}" placeholder="например, 4512" autocomplete="off" inputmode="numeric"></div>` : '');
+    if (t === 'off') h = `<div class="field"><label for="xReason">Причина списания</label><input id="xReason" data-x="reason" type="text" value="${esc(extraVals.reason)}" placeholder="например, брак" autocomplete="off">${pillRow('reason', OFF_REASONS, extraVals.reason)}</div>`;
+    if (t === 'count') h = `<div class="field"><label for="xReason">Почему пересчитываем</label><input id="xReason" data-x="reason" type="text" value="${esc(extraVals.reason)}" placeholder="например, плановый пересчёт" autocomplete="off">${pillRow('reason', COUNT_REASONS, extraVals.reason)}<span class="hint">Пересчёт ставит точную цифру. Всё, что записано до него, уже учтено.</span></div>`;
+    $('#mvExtra').innerHTML = h;
+    renderWarn();
+  }
+  function renderWarn(){
+    const it = itemById(M.itemId); const box = $('#mvWarn'); if (!box) return;
+    if (!it){ box.innerHTML = ''; return; }
+    const st = stockOf(it.id); const q = parseNum($('#mQty').value);
+    const out = TYPES[M.type].sign < 0;
+    let w = '';
+    if (out && st.known && q && q > st.qty) w = `Числится только ${fmtN(st.qty)} ${esc(unitS(it.unit))}. Сохраним всё равно, но лучше пересчитать полку.`;
+    else if (out && st.known && q && reservedOf(it.id).qty && q > round2(st.qty - reservedOf(it.id).qty)) w = `Часть отложена в комплекты: в резерве ${fmtN(reservedOf(it.id).qty)}, свободно ${fmtN(round2(st.qty - reservedOf(it.id).qty))} ${esc(unitS(it.unit))}. Сохраним, но проверьте комплекты.`;
+    else if (out && !st.known) w = 'Остаток этой позиции неизвестен. Запишем выдачу, а точную цифру даст пересчёт.';
+    else if (out && st.known && q && hasMin(it) && st.qty - q <= Number(it.min) && st.qty > Number(it.min)) w = `После этого останется ${fmtN(st.qty - q)} ${esc(unitS(it.unit))} — позиция попадёт в «Пора закупать».`;
+    box.innerHTML = w ? `<p class="soft-warn">${w}</p>` : '';
+  }
+  form.addEventListener('click', e => {
+    const p = e.target.closest('[data-pick]'); if (p){ M.itemId = p.dataset.pick; renderItemPick(); return; }
+    if (e.target.closest('[data-act="change-item"]')){ M.itemId = ''; renderItemPick(true); return; }
+    const t = e.target.closest('[data-mtype]'); if (t){ M.type = t.dataset.mtype; form.querySelectorAll('[data-mtype]').forEach(b => b.setAttribute('aria-pressed', String(b === t))); renderExtra(); return; }
+    const qn = e.target.closest('[data-qn]'); if (qn){ $('#mQty').value = qn.dataset.qn; renderWarn(); return; }
+    const rf = e.target.closest('[data-retfrom]'); if (rf){ M.retFrom = rf.dataset.retfrom; renderExtra(); return; }
+    const fl = e.target.closest('[data-fill]'); if (fl){ extraVals[fl.dataset.fill] = fl.dataset.val; renderExtra(); return; }
+  });
+  form.addEventListener('input', e => { const x = e.target.dataset && e.target.dataset.x; if (x) extraVals[x] = e.target.value; if (e.target.id === 'mQty') renderWarn(); });
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    const errs = [];
+    const it = itemById(M.itemId);
+    const q = parseNum($('#mQty').value);
+    const who = $('#mWho').value.trim();
+    const t = M.type;
+    if (!it) errs.push('Выберите позицию.');
+    if (q === null || Number.isNaN(q)) errs.push(t === 'count' ? 'Напишите, сколько сейчас на полке (можно 0).' : 'Напишите количество.');
+    else if (t === 'count' ? q < 0 : q <= 0) errs.push(t === 'count' ? 'Количество не может быть меньше нуля.' : 'Количество должно быть больше нуля.');
+    let job = '', truck = '';
+    if (t === 'job' || (t === 'ret' && M.retFrom === 'job')) job = (extraVals.job || '').trim().replace(/^#/, '');
+    if (t === 'truck' || (t === 'ret' && M.retFrom === 'truck')) truck = (extraVals.truck || '').trim().toUpperCase();
+    if (t === 'job' && !job) errs.push('Напишите номер заказа.');
+    if (t === 'truck' && !truck) errs.push('Укажите трак, например T2.');
+    const reason = (t === 'off' || t === 'count') ? (extraVals.reason || '').trim() : '';
+    if ((t === 'off' || t === 'count') && !reason) errs.push(t === 'off' ? 'Напишите причину списания.' : 'Напишите причину пересчёта.');
+    if (!who) errs.push('Напишите ваше имя, чтобы было видно, кто записал.');
+    if (errs.length){ $('#mvErr').innerHTML = `<p class="err-text">${errs.map(esc).join('<br>')}</p>`; return; }
+    $('#mvErr').innerHTML = '';
+    lsSet(NAME_KEY, who); renderWho();
+    const btn = $('#mvSave'); btn.disabled = true; btn.textContent = 'Сохраняем…';
+    const ref = S.db.collection('moves').doc();
+    const data = {itemId:it.id, itemName:it.name, unit:it.unit || 'шт', type:t, qty:round2(q), job, truck,
+      supplier: t === 'in' ? (extraVals.supplier || '').trim() : '', reason, note:$('#mNote').value.trim(),
+      at:Date.now(), byName:who, byId:S.myId || null, sample: !!it.sample};
+    try {
+      await write(() => ref.set(data));
+      closeSheet();
+      const amt = t === 'count' ? `стало ${fmtN(q)}` : `${TYPES[t].sign > 0 ? '+' : '−'}${fmtN(q)}`;
+      toast(`Записано: ${TYPES[t].label}, ${amt} ${unitS(it.unit)} · ${it.name}`, {undo: () => ref.delete()});
+    } catch (err){ $('#mvErr').innerHTML = `<p class="err-text">${esc(errText(err))}</p>`; btn.disabled = false; btn.textContent = 'Сохранить'; }
+  });
+  renderItemPick(!M.itemId);
+  renderExtra();
+  if (M.itemId) setTimeout(() => $('#mQty').focus(), 40);
+}
+
+/* ---------- quick ±1 ---------- */
+const quickBusy = new Set();
+async function quick(itemId, d){
+  if (!ensureCanWrite()) return;
+  const it = itemById(itemId); if (!it) return;
+  const sig = signature();
+  if (!sig){ openNameSheet(() => quick(itemId, d)); return; }
+  if (quickBusy.has(itemId)) return;
+  quickBusy.add(itemId);
+  const ref = S.db.collection('moves').doc();
+  try {
+    await write(() => ref.set({itemId, itemName:it.name, unit:it.unit || 'шт', type:'quick', qty:d, job:'', truck:'', supplier:'', reason:'', note:'', at:Date.now(), byName:sig, byId:S.myId || null, sample: !!it.sample}));
+    toast(`${d > 0 ? '+1' : '−1'} ${unitS(it.unit)} · ${it.name}`, {undo: () => ref.delete()});
+  } catch (err){ toast(errText(err), {bad:true}); }
+  finally { quickBusy.delete(itemId); }
+}
+
+/* ---------- delegated clicks ---------- */
+document.addEventListener('click', async e => {
+  const t = e.target;
+  const open = t.closest('[data-open]'); if (open){ openItemSheet(open.dataset.open); return; }
+  const qb = t.closest('[data-quick]'); if (qb){ quick(qb.dataset.id, Number(qb.dataset.quick)); return; }
+  const mv = t.closest('[data-move]'); if (mv && !t.closest('#moveForm')){ const id = mv.dataset.id; closeSheet(); openMoveForm({itemId:id, type:mv.dataset.move}); return; }
+  const dm = t.closest('[data-delmove]'); if (dm){ S.confirmDel = dm.dataset.delmove; renderHist(); return; }
+  if (t.closest('[data-delmove-no]')){ S.confirmDel = null; renderHist(); return; }
+  const dmy = t.closest('[data-delmove-yes]');
+  if (dmy){
+    const id = dmy.dataset.delmoveYes; dmy.disabled = true;
+    try { await write(() => S.db.doc('moves/' + id).delete()); toast('Запись удалена. Остаток пересчитан.'); }
+    catch (err){ toast(errText(err), {bad:true}); }
+    S.confirmDel = null; renderHist(); return;
+  }
+  const ds = t.closest('[data-delscrap]'); if (ds){ S.scrapConfirm = ds.dataset.delscrap; renderScrap(); return; }
+  if (t.closest('[data-delscrap-no]')){ S.scrapConfirm = null; renderScrap(); return; }
+  const dsy = t.closest('[data-delscrap-yes]');
+  if (dsy){
+    const id = dsy.dataset.delscrapYes; dsy.disabled = true;
+    try { await write(() => S.db.doc('scrap/' + id).delete()); toast('Талон удалён.'); }
+    catch (err){ toast(errText(err), {bad:true}); }
+    S.scrapConfirm = null; renderScrap(); return;
+  }
+  const act = t.closest('[data-act]'); if (!act) return;
+  const a = act.dataset.act;
+  if (a === 'close'){ closeSheet(); }
+  else if (a === 'new-item'){ openItemForm(null); }
+  else if (a === 'clear-search'){ S.q = ''; S.cat = ''; $('#q').value = ''; renderSklad(); }
+  else if (a === 'clear-hist'){ S.hist = {q:'',item:'',who:'',where:'',type:''}; $('#hq').value = ''; $('#hWhere').value = ''; renderHist(); }
+  else if (a === 'more-hist'){ S.histLimit += 200; renderHist(); }
+  else if (a === 'edit-item'){ const id = sheetItemId; closeSheet(); openItemForm(id); }
+  else if (a === 'del-item'){ S.confirmItemDel = sheetItemId; refreshItemSheet(); }
+  else if (a === 'del-item-no'){ S.confirmItemDel = null; refreshItemSheet(); }
+  else if (a === 'del-item-yes'){
+    const it = itemById(sheetItemId); if (!it) return;
+    act.disabled = true;
+    try { await write(() => S.db.doc('items/' + it.id).delete()); closeSheet(); toast(`Удалено: ${it.name}. История осталась.`); }
+    catch (err){ toast(errText(err), {bad:true}); act.disabled = false; }
+  }
+  else if (a === 'samples-ask'){ if (!ensureCanWrite()) return; S.sampleConfirm = true; renderBanners(); }
+  else if (a === 'samples-no'){ S.sampleConfirm = false; renderBanners(); }
+  else if (a === 'samples-yes'){ deleteSamples(act); }
+});
+
+async function deleteSamples(btn){
+  if (!ensureCanWrite()) return;
+  btn.disabled = true; btn.textContent = 'Удаляем…';
+  const sampleIds = new Set(S.items.filter(i => i.sample).map(i => i.id));
+  const sampleKits = new Set(S.kits.filter(k => k.sample).map(k => k.id));
+  const refs = [
+    ...S.moves.filter(m => m.sample || sampleIds.has(m.itemId) || sampleKits.has(m.kitId)).map(m => 'moves/' + m.id),
+    ...S.reserves.filter(r => r.sample || sampleKits.has(r.kitId)).map(r => 'reserves/' + r.id),
+    ...[...sampleKits].map(id => 'kits/' + id),
+    ...S.scrap.filter(s => s.sample).map(s => 'scrap/' + s.id),
+    ...[...sampleIds].map(id => 'items/' + id)
+  ];
+  let failed = 0, lastErr = null;
+  for (let i = 0; i < refs.length; i += 8){
+    const chunk = refs.slice(i, i + 8);
+    const res = await Promise.allSettled(chunk.map(p => write(() => S.db.doc(p).delete())));
+    res.forEach(r => { if (r.status === 'rejected'){ failed++; lastErr = r.reason; } });
+  }
+  S.sampleConfirm = false;
+  if (failed) toast(`Часть примеров не удалилась (${failed}). ${errText(lastErr)}`, {bad:true});
+  else toast('Примеры удалены. Склад чистый, можно заводить настоящие позиции.');
+  renderBanners();
+}
+
+/* ---------- КОМПЛЕКТЫ ---------- */
+/* Data: kits/<id> holds the header, a `lines` map {lineId: {itemId, need, flag, reason…}} and confirmations.
+   reserves/<kitId>_<lineId> is the reservation record for one line: qty = how much is placed in the zone.
+   Stock goes down only when the foreman accepts: then each placed line becomes a moves/kv-<kitId>-<lineId> record. */
+const ZONES = ['A1','A2','A3','A4','A5','A6','A7','A8'];
+const MISS_REASONS = ['Нет на складе','Не нашли на полке','Брак','Ждём поставку'];
+const Q_REASONS = ['Не хватает позиции','Не то количество','Не та модель','Позвоните мне'];
+const TRUCK_KEY = 'fixpro.sklad.truck';
+const KSTAT = {
+  open:  {cls:'k-open',   label:'собирается'},
+  short: {cls:'k-short',  label:'не хватает'},
+  picked:{cls:'k-picked', label:'собран'},
+  pshort:{cls:'k-pshort', label:'собран с нехваткой'},
+  q:     {cls:'k-q',      label:'есть вопрос'},
+  acc:   {cls:'k-acc',    label:'принят форманом'},
+  empty: {cls:'k-empty',  label:'нет позиций'}
+};
+const LOGK = {created:'Создан', edited:'Изменён', picked:'Сборщик: «Комплект собран»', question:'Форман: «Есть вопрос»', accepted:'Форман: «Проверил, принял»'};
+const WRITE_ACTS = new Set(['place','plus','minus','miss','unk','clear','editline','addline','pick','accept','question','edit','del-yes']);
+const busyDocs = new Set();
+const dayF = new Intl.DateTimeFormat('ru-RU', {day:'numeric', month:'short'});
+const wdF = new Intl.DateTimeFormat('ru-RU', {weekday:'short', day:'numeric', month:'short'});
+
+function newId(p){ return p + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+function ymdOf(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+function addDays(ymd, n){ const [y, m, d] = String(ymd).split('-').map(Number); return ymdOf(new Date(y, m - 1, d + n)); }
+function tomorrowStr(){ return addDays(todayStr(), 1); }
+function ymdDate(ymd){ const d = new Date(String(ymd) + 'T12:00:00'); return isNaN(d) ? null : d; }
+function dayName(ymd){
+  if (!ymd) return 'без даты';
+  if (ymd === todayStr()) return 'сегодня';
+  if (ymd === tomorrowStr()) return 'завтра';
+  const d = ymdDate(ymd); return d ? dayF.format(d) : String(ymd);
+}
+function dayLong(ymd){ const d = ymdDate(ymd); return d ? wdF.format(d) : ''; }
+function cap(s){ s = String(s || ''); return s.charAt(0).toUpperCase() + s.slice(1); }
+function plural(n, one, few, many){ const a = Math.abs(n) % 100, b = a % 10; if (a > 10 && a < 20) return many; if (b > 1 && b < 5) return few; if (b === 1) return one; return many; }
+const upKey = s => String(s || '').trim().toUpperCase();
+function zoneClass(z){ const key = upKey(z); const i = ZONES.indexOf(key); if (i >= 0) return 'z' + (i % 4); let h = 0; for (const c of key) h += c.charCodeAt(0); return 'z' + (h % 4); }
+function zoneTag(z, big){ const key = upKey(z) || '—'; return `<span class="ztag ${zoneClass(key)}${big ? ' big' : ''}"><span><small>зона</small><b>${esc(key)}</b></span></span>`; }
+function truckTag(t, big){ return `<span class="truck${big ? ' big' : ''}">${ICONS.truck}${esc(t || '—')}</span>`; }
+function stripId(o){ const r = {...o}; delete r.id; return r; }
+
+const kitById = id => S.kits.find(k => k.id === id);
+function liveLines(k){
+  const L = k && k.lines && typeof k.lines === 'object' ? k.lines : {};
+  return Object.keys(L).filter(id => L[id] && typeof L[id] === 'object' && !L[id].removed)
+    .map(id => ({...L[id], id})).sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0));
+}
+const resId = (kitId, lineId) => kitId + '_' + lineId;
+const moveIdFor = (kitId, lineId) => 'kv-' + kitId + '-' + lineId;
+function placedOf(kitId, lineId){ const r = S.resById.get(resId(kitId, lineId)); return r ? Math.max(0, round2(Number(r.qty) || 0)) : 0; }
+function lineState(k, l){
+  const need = Math.max(0, Number(l.need) || 0), placed = placedOf(k.id, l.id);
+  const short = Math.max(0, round2(need - placed));
+  let key;
+  if (need > 0 && placed >= need) key = 'done';
+  else if (l.flag === 'missing') key = 'miss';
+  else if (l.flag === 'unknown') key = 'unk';
+  else if (placed > 0) key = 'part';
+  else key = 'wait';
+  return {need, placed, short, key};
+}
+function kitInfo(k){
+  const lines = liveLines(k).map(l => ({...l, st:lineState(k, l)}));
+  const n = key => lines.filter(l => l.st.key === key).length;
+  const total = lines.length, done = n('done');
+  return {lines, total, done, missing:n('miss'), unknown:n('unk'), incomplete:total - done};
+}
+function kitStatus(k, info){
+  info = info || kitInfo(k);
+  if (k.stage === 'accepted') return KSTAT.acc;
+  if (k.stage === 'question') return KSTAT.q;
+  if (!info.total) return KSTAT.empty;
+  if (k.stage === 'picked') return info.incomplete ? KSTAT.pshort : KSTAT.picked;
+  if (info.missing) return KSTAT.short;
+  return KSTAT.open;
+}
+const kitChip = st => `<span class="kst ${st.cls}">${esc(st.label)}</span>`;
+function kitTitle(k){ return '#' + (k.job || '—') + (k.label ? ' · ' + k.label : ''); }
+function lineItemName(l){ const it = itemById(l.itemId); return (it && it.name) || l.itemName || 'Позиция удалена со склада'; }
+function lineUnit(l){ const it = itemById(l.itemId); return unitS((it && it.unit) || l.unit); }
+function issueHow(k){ return k.job ? `выдача на заказ #${k.job}${k.truck ? ', трак ' + k.truck : ''}` : `выдача в трак ${k.truck || '—'}`; }
+
+function computeKits(){
+  S.resById = new Map(S.reserves.map(r => [r.id, r]));
+  const moveIds = new Set(S.moves.map(m => m.id));
+  const res = new Map();
+  for (const k of S.kits){
+    if (k.stage === 'accepted') continue;
+    for (const l of liveLines(k)){
+      const q = placedOf(k.id, l.id);
+      if (q <= 0 || moveIds.has(moveIdFor(k.id, l.id))) continue;
+      let e = res.get(l.itemId);
+      if (!e){ e = {qty:0, kits:[]}; res.set(l.itemId, e); }
+      e.qty = round2(e.qty + q); e.kits.push({kit:k, qty:q});
+    }
+  }
+  S.reserved = res;
+}
+function reservedOf(id){ return S.reserved.get(id) || {qty:0, kits:[]}; }
+function resvHtml(it){ const r = reservedOf(it.id); return r.qty > 0 ? `<span class="resv num">в резерве ${fmtN(r.qty)} ${esc(unitS(it.unit))}</span>` : ''; }
+function resvBox(it){
+  const r = reservedOf(it.id); if (!r.qty) return '';
+  const st = stockOf(it.id), u = esc(unitS(it.unit));
+  return `<div class="resv-box"><b class="num">В резерве ${fmtN(r.qty)} ${u}${st.known ? ` · свободно ${fmtN(round2(st.qty - r.qty))} ${u}` : ''}</b>
+    ${r.kits.map(x => `<span class="num">зона ${esc(upKey(x.kit.zone))} · #${esc(x.kit.job || '—')} · на ${esc(dayName(x.kit.date))} · ${fmtN(x.qty)} ${u}</span>`).join('')}
+    <span class="hint">Это ещё не списание. Со склада спишется, когда форман примет комплект.</span></div>`;
+}
+function stockLine(it){ const st = stockOf(it.id), r = reservedOf(it.id); return (st.known ? `числится ${fmtN(st.qty)} ${esc(unitS(it.unit))}` : 'остаток неизвестен') + (r.qty ? ` · в резерве ${fmtN(r.qty)}` : ''); }
+function autoDay(){
+  if (!S.kDateAuto) return;
+  S.kDateAuto = false;
+  const t = tomorrowStr(), d = todayStr();
+  if (!S.kits.some(k => k.date === t) && S.kits.some(k => k.date === d)) S.kDate = d;
+}
+function pickListHtml(q, attr){
+  if (!S.items.length) return '<p class="muted">На складе пока нет позиций. Сначала добавьте позицию на вкладке «Склад».</p>';
+  const words = norm(q).split(/\s+/).filter(Boolean);
+  const score = x => { const hay = norm([x.name, x.cell].join(' ')).split(/[\s,()×]+/); return words.reduce((t, w) => t + (hay.some(h => h.startsWith(w)) ? 2 : 1), 0); };
+  const list = sortedItems(S.items.filter(x => itemMatches(x, q))).sort((a, b) => score(b) - score(a)).slice(0, 7);
+  if (!list.length) return `<p class="muted">Не нашли «${esc(q)}». Проверьте написание или добавьте позицию на вкладке «Склад».</p>`;
+  return list.map(x => `<button class="pick" type="button" data-${attr}="${esc(x.id)}">${cellChip(x.cell)}<span class="n">${esc(x.name)}</span><span class="muted num" style="font-size:14px">${stockOf(x.id).known ? fmtN(stockOf(x.id).qty) + ' ' + esc(unitS(x.unit)) : '?'}</span></button>`).join('');
+}
+function truckOptions(){
+  const set = new Set();
+  S.kits.forEach(k => { if (k.truck) set.add(upKey(k.truck)); });
+  recentValues('truck').forEach(t => set.add(upKey(t)));
+  ['T1','T2','T3','T4'].forEach(t => set.add(t));
+  return [...set].sort((a, b) => a.localeCompare(b, 'ru', {numeric:true})).slice(0, 8);
+}
+function foremanOptions(){
+  const out = [];
+  [...S.kits].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).forEach(k => { const f = String(k.foreman || '').trim(); if (f && !out.includes(f)) out.push(f); });
+  return out.slice(0, 6);
+}
+function firstFreeZone(date, exceptId){ return ZONES.find(z => !S.kits.some(k => k.date === date && upKey(k.zone) === z && k.id !== exceptId)) || ''; }
+
+/* ----- board ----- */
+function syncKitControls(){
+  const t = todayStr(), tm = tomorrowStr();
+  $('#dToday').textContent = dayLong(t);
+  $('#dTomorrow').textContent = dayLong(tm);
+  document.querySelectorAll('[data-kday]').forEach(b => b.setAttribute('aria-pressed', String((b.dataset.kday === 'today' ? t : tm) === S.kDate)));
+  const inp = $('#kDate');
+  if (document.activeElement !== inp && inp.value !== S.kDate) inp.value = S.kDate;
+}
+function renderTruckChips(){
+  const set = new Set(S.kits.filter(k => k.date === S.kDate && k.truck).map(k => upKey(k.truck)));
+  if (S.kTruck) set.add(S.kTruck);
+  const list = [...set].sort((a, b) => a.localeCompare(b, 'ru', {numeric:true}));
+  const html = `<button class="chip" type="button" data-ktruck="" aria-pressed="${!S.kTruck}">Все зоны</button>`
+    + list.map(t => `<button class="chip" type="button" data-ktruck="${esc(t)}" aria-pressed="${S.kTruck === t}">${esc(t)}</button>`).join('')
+    + (list.length ? '' : '<span class="hint">Траки появятся, когда на этот день будут комплекты.</span>');
+  const box = $('#truckChips');
+  if (box.dataset.h !== html){ box.innerHTML = html; box.dataset.h = html; }
+}
+function renderKits(){
+  if (S.tab !== 'komplekty') return;
+  const out = $('#kitsOut'), head = $('#kitBoardHead');
+  syncKitControls();
+  $('#newKitBtn').disabled = !canWriteNow();
+  if (!S.loaded.kits || !S.loaded.reserves){
+    head.hidden = false;
+    out.innerHTML = emptyBox('kit', S.conn === 'bad' ? 'Комплекты не загрузились' : 'Загружаем комплекты…', S.conn === 'bad' ? 'Нет связи с общей базой. Обновите страницу.' : 'Секунду, подтягиваем общие данные.');
+    return;
+  }
+  if (S.kitOpen){
+    const k = kitById(S.kitOpen);
+    if (k){ if (S.kitPending === k.id) S.kitPending = null; head.hidden = true; out.innerHTML = kitScreen(k); return; }
+    if (S.kitPending === S.kitOpen && Date.now() - S.kitPendingAt < 8000){
+      head.hidden = true; out.innerHTML = emptyBox('kit', 'Открываем комплект…', 'Секунду, он только что сохранился.');
+      setTimeout(renderCurrent, 600); return;
+    }
+    S.kitOpen = null;
+    try { history.replaceState(null, '', '#komplekty'); } catch(e){}
+    toast('Этот комплект не нашли. Возможно, его удалили.', {bad:true});
+  }
+  head.hidden = false;
+  renderTruckChips();
+  const kits = S.kits.filter(k => k.date === S.kDate);
+  out.innerHTML = S.kTruck ? truckView(S.kDate, kits) : boardHtml(S.kDate, kits);
+}
+function sortKits(list){ return [...list].sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0)); }
+function boardHtml(date, kits){
+  const parts = [];
+  if (!kits.length){
+    parts.push(`<p class="lead">На ${esc(dayName(date))} комплектов пока нет. Нажмите «Новый комплект» или «Собрать сюда» в свободной зоне.</p>`);
+  } else {
+    const cnt = new Map();
+    for (const k of kits){ const s = kitStatus(k); cnt.set(s, (cnt.get(s) || 0) + 1); }
+    const order = [KSTAT.short, KSTAT.q, KSTAT.open, KSTAT.pshort, KSTAT.picked, KSTAT.acc, KSTAT.empty];
+    parts.push(`<div class="ksum"><b>${esc(cap(dayName(date)))}: ${kits.length} ${plural(kits.length, 'комплект', 'комплекта', 'комплектов')}</b>${order.filter(s => cnt.get(s)).map(s => `<span class="kst ${s.cls}">${esc(s.label)}: ${cnt.get(s)}</span>`).join('')}</div>`);
+  }
+  const extra = [...new Set(kits.map(k => upKey(k.zone)).filter(z => !ZONES.includes(z)))];
+  parts.push(`<div class="zones">${[...ZONES, ...extra].map(z => zoneCard(z, sortKits(kits.filter(k => upKey(k.zone) === z)))).join('')}</div>`);
+  parts.push(missingCard(date, kits));
+  return parts.join('');
+}
+function zoneCard(z, kits){
+  if (!kits.length){
+    return `<div class="zone free">${zoneTag(z)}<p>Свободна</p>${canWriteNow() ? `<button class="btn btn-ghost btn-sm" type="button" data-kzone-new="${esc(z)}">+ Собрать сюда</button>` : ''}</div>`;
+  }
+  return `<div class="zone">${zoneTag(z)}${kits.map(zkitHtml).join('')}</div>`;
+}
+function zkitHtml(k){
+  const info = kitInfo(k), st = kitStatus(k, info);
+  const pct = info.total ? Math.round(info.done / info.total * 100) : 0;
+  return `<button class="zkit" type="button" data-kit-open="${esc(k.id)}">
+    <span class="zjob num">#${esc(k.job || '—')}</span>
+    ${k.label ? `<span class="zlabel">${esc(k.label)}</span>` : ''}
+    <span class="zmeta">${truckTag(k.truck)}<span>${esc(k.foreman || 'форман не указан')}</span></span>
+    <span class="prog" aria-hidden="true"><i style="width:${pct}%"></i></span>
+    <span class="ptext num">положено ${info.done} из ${info.total}</span>
+    ${kitChip(st)}${k.sample ? '<span class="tag" style="align-self:flex-start">пример</span>' : ''}
+  </button>`;
+}
+function missingCard(date, kits){
+  if (!kits.length) return '';
+  const miss = [], unk = [];
+  for (const k of kits) for (const l of kitInfo(k).lines){ if (l.st.key === 'miss') miss.push({k, l}); else if (l.st.key === 'unk') unk.push({k, l}); }
+  const title = date === tomorrowStr() ? 'Не хватает к завтра' : date === todayStr() ? 'Не хватает на сегодня' : `Не хватает на ${dayName(date)}`;
+  if (!miss.length && !unk.length) return `<div class="banner ok"><p><b>${esc(title)}: ничего.</b> Никто не отметил нехватку в этих комплектах.</p></div>`;
+  const row = ({k, l}) => `<li><b>${esc(lineItemName(l))}</b><span class="num">${l.st.key === 'miss' ? `не хватает ${fmtN(l.st.short)} ${esc(lineUnit(l))}` : 'неизвестно, есть ли'} · зона ${esc(upKey(k.zone))} · #${esc(k.job || '—')} · ${esc(k.truck || '—')}${k.stage === 'accepted' ? ' · комплект уже выдан' : ''}</span>${l.reason || l.flagBy ? `<span class="muted">${l.reason ? '«' + esc(l.reason) + '»' : ''}${l.flagBy ? ` — ${esc(l.flagBy)}, ${esc(fmtAt(l.flagAt))}` : ''}</span>` : ''}</li>`;
+  return `<section class="short" aria-labelledby="shortH"><div class="short-head"><h2 id="shortH">${esc(title)} <span class="num">${miss.length}</span></h2><button class="btn btn-ghost btn-sm" type="button" data-kcopy="1">Скопировать список</button></div>
+    <p>Это предупреждение, не запрет. Комплект всё равно можно собрать и выдать.</p>
+    ${miss.length ? `<ul class="short-list">${miss.map(row).join('')}</ul>` : ''}
+    ${unk.length ? `<h3>Неизвестно, есть ли</h3><ul class="short-list">${unk.map(row).join('')}</ul>` : ''}
+  </section>`;
+}
+
+/* ----- foreman: my truck ----- */
+function truckView(date, kits){
+  const list = sortKits(kits.filter(k => upKey(k.truck) === S.kTruck));
+  const head = `<div class="card" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">${truckTag(S.kTruck, true)}<p style="flex:1 1 240px;min-width:0">Вид для формана: комплекты трака ${esc(S.kTruck)} на ${esc(dayName(date))}. Посмотрите, что положено, и подтвердите.</p><button class="btn btn-ghost btn-sm" type="button" data-ktruck="">Показать все зоны</button></div>`;
+  if (!list.length) return head + emptyBox('truck', `На трак ${S.kTruck} на ${dayName(date)} комплектов нет`, 'Проверьте день сверху или выберите другой трак.');
+  return head + list.map(fkitCard).join('') + missingCard(date, list);
+}
+function fkitCard(k){
+  const info = kitInfo(k), st = kitStatus(k, info), acc = k.stage === 'accepted', can = canWriteNow();
+  const M = {done:['✓','lm-done'], part:['…','lm-part'], miss:['!','lm-miss'], unk:['?','lm-unk'], wait:['○','lm-wait']};
+  const rows = info.lines.map(l => {
+    const s = l.st, u = esc(lineUnit(l));
+    const text = s.key === 'done' ? `${acc ? 'выдано' : 'положено'} ${fmtN(s.placed)} из ${fmtN(s.need)} ${u}`
+      : s.key === 'miss' ? `не хватает ${fmtN(s.short)} ${u}`
+      : s.key === 'unk' ? `неизвестно, есть ли · ${fmtN(s.placed)} из ${fmtN(s.need)}`
+      : s.key === 'part' ? `частично: ${fmtN(s.placed)} из ${fmtN(s.need)} ${u}` : `не положено: 0 из ${fmtN(s.need)} ${u}`;
+    return `<li><span class="lmark ${M[s.key][1]}" aria-hidden="true">${M[s.key][0]}</span><span class="n">${esc(lineItemName(l))}</span><span class="num q">${text}</span>${l.flag && s.key !== 'done' && l.reason ? `<span class="why">«${esc(l.reason)}»</span>` : ''}</li>`;
+  }).join('');
+  const p = k.picked, c = k.check;
+  let fb = '';
+  if (acc && c) fb = `<p class="signed">✓ Проверил, принял · ${esc(c.by || 'Без имени')}, ${esc(fmtAt(c.at))}</p>`;
+  else {
+    if (k.stage === 'question' && c) fb = `<p class="signed q">? Вопрос: «${esc(c.note || '')}» · ${esc(c.by || '')}, ${esc(fmtAt(c.at))}</p>`;
+    if (can) fb += `<div class="kacts"><button class="btn btn-main" type="button" data-kact="accept" data-kit="${esc(k.id)}">${ICONS.check}Проверил, принял</button><button class="btn btn-warn" type="button" data-kact="question" data-kit="${esc(k.id)}">Есть вопрос</button></div>`;
+  }
+  return `<article class="card fkit">
+    <div class="fkit-head">${zoneTag(k.zone)}<div class="fkit-title"><h3>${esc(kitTitle(k))}</h3><p class="muted">Форман: ${esc(k.foreman || 'не указан')} · положено ${info.done} из ${info.total}${k.sample ? ' · пример' : ''}</p></div>${kitChip(st)}</div>
+    ${rows ? `<ul class="flines">${rows}</ul>` : '<p class="muted">В комплекте нет позиций.</p>'}
+    <p class="hint">${p && p.at ? `Сборщик: ${p.short ? 'собран с нехваткой' : 'собран'} · ${esc(p.by || 'Без имени')}, ${esc(fmtAt(p.at))}` : 'Сборщик ещё не нажал «Комплект собран».'}</p>
+    ${fb}
+    <button class="btn btn-ghost" type="button" data-kit-open="${esc(k.id)}">Открыть комплект</button>
+  </article>`;
+}
+
+/* ----- kit screen ----- */
+function kitScreen(k){
+  const info = kitInfo(k), st = kitStatus(k, info), acc = k.stage === 'accepted', can = canWriteNow();
+  const pct = info.total ? Math.round(info.done / info.total * 100) : 0;
+  const kid = esc(k.id);
+  const parts = [];
+  parts.push(`<div><button class="btn btn-ghost" type="button" data-kact="back">← Все зоны</button></div>`);
+  parts.push(`<div class="card khead">
+    <div class="khead-top">${zoneTag(k.zone, true)}
+      <div class="khead-title"><h1>${esc(kitTitle(k))}</h1>
+        <div class="kmeta">${truckTag(k.truck)}<span>Форман: ${esc(k.foreman || 'не указан')}</span><span>на ${esc(dayName(k.date))}, ${esc(dayLong(k.date))}</span>${k.sample ? '<span class="tag">пример</span>' : ''}</div></div>
+      ${kitChip(st)}</div>
+    <span class="prog" aria-hidden="true"><i style="width:${pct}%"></i></span>
+    <p class="ptext num">Положено ${info.done} из ${info.total} ${plural(info.total, 'позиции', 'позиций', 'позиций')}${info.missing ? ` · не хватает: ${info.missing}` : ''}${info.unknown ? ` · неизвестно: ${info.unknown}` : ''}</p>
+  </div>`);
+  if (k.stage === 'question' && k.check){
+    parts.push(`<div class="banner q"><p><b>Вопрос формана${k.check.by ? ' (' + esc(k.check.by) + ')' : ''}, ${esc(fmtAt(k.check.at))}:</b> «${esc(k.check.note || '')}». Исправьте и снова нажмите «Комплект собран».</p></div>`);
+  }
+  if (acc){
+    const c = k.check || {};
+    parts.push(`<div class="banner ok"><p><b>Принят и выдан.</b> ${esc(c.by || '')}, ${esc(fmtAt(c.at || k.issuedAt))}. Со склада списано как «${esc(issueHow(k))}». Строки менять уже нельзя. Если что-то вернули, запишите «Возврат» на вкладке «Склад».</p><button class="btn btn-soft btn-sm" type="button" data-kact="history" data-kit="${kid}">Открыть в истории</button></div>`);
+  }
+  parts.push(`<div class="group"><h2>Что положить <span class="muted num">${info.total}</span></h2>
+    ${info.total ? `<ul class="klines">${info.lines.map(l => lineCard(k, l, acc, can)).join('')}</ul>` : emptyBox('kit', 'В комплекте пока нет позиций', 'Нажмите «Добавить позицию» и выберите товар со склада.')}
+    ${!acc && can ? `<div><button class="btn btn-soft" type="button" data-kact="addline" data-kit="${kid}">${ICONS.plus}Добавить позицию</button></div>` : ''}</div>`);
+  parts.push(`<div class="two">${pickerBlock(k, acc, can)}${foremanBlock(k, acc, can)}</div>`);
+  const log = Array.isArray(k.log) ? [...k.log].sort((a, b) => (b.at || 0) - (a.at || 0)) : [];
+  if (log.length){
+    parts.push(`<details class="card klog"><summary>Кто и когда <span class="muted num" style="margin-left:8px">${log.length}</span></summary><ul>${log.map(e => `<li><b>${esc(LOGK[e.kind] || e.kind || '')}</b><span>${esc(e.by || 'Без имени')}, ${esc(fmtAt(e.at))}</span>${e.note ? `<span class="muted">«${esc(e.note)}»</span>` : ''}</li>`).join('')}</ul></details>`);
+  }
+  if (can){
+    parts.push(S.kitDelAsk === k.id
+      ? `<div class="banner err"><p><b>Удалить комплект ${esc(kitTitle(k))}?</b> ${acc ? 'Выдача со склада останется в истории.' : 'Резерв снимется, товар снова будет свободен.'}</p><button class="btn btn-warn btn-sm" type="button" data-kact="del-yes" data-kit="${kid}">Да, удалить</button><button class="btn btn-ghost btn-sm" type="button" data-kact="del-no" data-kit="${kid}">Нет</button></div>`
+      : `<div class="form-actions">${!acc ? `<button class="btn btn-ghost" type="button" data-kact="edit" data-kit="${kid}">Изменить заказ, трак, зону</button>` : ''}<button class="btn btn-ghost" type="button" data-kact="del" data-kit="${kid}">Удалить комплект</button></div>`);
+  }
+  return parts.join('');
+}
+function lineCard(k, l, acc, can){
+  const it = itemById(l.itemId), u = esc(lineUnit(l)), s = l.st, name = esc(lineItemName(l));
+  const kid = esc(k.id), lid = esc(l.id);
+  const LC = acc
+    ? (s.placed >= s.need && s.need > 0 ? ['l-done', 'выдано'] : s.placed > 0 ? ['l-part', `выдано ${fmtN(s.placed)} из ${fmtN(s.need)}`] : ['l-miss', 'не выдано'])
+    : {done:['l-done', 'положено'], part:['l-part', 'частично'], miss:['l-miss', `не хватает ${fmtN(s.short)} ${unitS(lineUnit(l))}`], unk:['l-unk', 'неизвестно'], wait:['l-wait', 'ещё не положили']}[s.key];
+  const sub = [];
+  if (it) sub.push(cellChip(it.cell));
+  if (!acc){
+    if (!it) sub.push('<span>позиции больше нет на складе</span>');
+    else {
+      const st = stockOf(it.id), r = reservedOf(it.id);
+      sub.push(`<span class="num">на складе ${st.known ? fmtN(st.qty) + ' ' + u : 'неизвестно'}</span>`);
+      if (r.qty) sub.push(`<span class="resv num">в резерве ${fmtN(r.qty)} ${u}</span>`);
+    }
+  }
+  const res = S.resById.get(resId(k.id, l.id));
+  if (res && Number(res.qty) > 0) sub.push(`<span>положил: ${esc(res.byName || 'Без имени')}, ${esc(fmtAt(res.at))}</span>`);
+  let warn = '';
+  if (!acc && it){
+    const st = stockOf(it.id), r = reservedOf(it.id);
+    if (st.known && r.qty > st.qty) warn = `<p class="soft-warn">В резерве ${fmtN(r.qty)} ${u}, а на складе числится ${fmtN(st.qty)}. Проверьте полку и запишите пересчёт.</p>`;
+  }
+  const why = l.flag && s.key !== 'done' && !acc ? `<p class="kline-why${l.flag === 'unknown' ? ' unk' : ''}">${l.flag === 'missing' ? 'Не хватает' : 'Неизвестно'}${l.reason ? ': «' + esc(l.reason) + '»' : ''}${l.flagBy ? ` · ${esc(l.flagBy)}, ${esc(fmtAt(l.flagAt))}` : ''}</p>` : '';
+  let acts = '';
+  if (!acc && can){
+    const b = [], d = (act, cls, label, aria) => `<button class="btn ${cls}" type="button" data-kact="${act}" data-kit="${kid}" data-line="${lid}"${aria ? ` aria-label="${aria}"` : ''}>${label}</button>`;
+    if (s.placed < s.need){
+      b.push(d('place', 'btn-main', `${ICONS.check}Положил ${fmtN(s.short)}`, `Положил ${fmtN(s.short)} ${u}: ${name}`));
+      if (s.short > 1) b.push(d('plus', 'btn-soft', '+1', `Положил ещё 1: ${name}`));
+    }
+    if (s.placed > 0) b.push(d('minus', 'btn-ghost', '−1', `Убрать 1: ${name}`));
+    if (s.placed < s.need){
+      b.push(l.flag === 'missing' ? d('clear', 'btn-warn', 'Снять «не хватает»') : d('miss', 'btn-warn', 'Не хватает', `Не хватает: ${name}`));
+      b.push(d('unk', 'btn-ghost', l.flag === 'unknown' ? 'Снять «неизвестно»' : 'Неизвестно', l.flag === 'unknown' ? '' : `Неизвестно, есть ли: ${name}`));
+    }
+    b.push(d('editline', 'btn-ghost', 'Изменить', `Изменить строку: ${name}`));
+    acts = `<div class="kacts">${b.join('')}</div>`;
+  }
+  return `<li class="kline k${s.key}">
+    <div class="kline-top"><span class="kline-name">${name}</span><span class="kline-q num">${fmtN(s.placed)} <small>из ${fmtN(s.need)} ${u}</small></span><span class="lst ${LC[0]}">${esc(LC[1])}</span></div>
+    <div class="kline-sub">${sub.join('')}</div>${why}${warn}${acts}</li>`;
+}
+function pickerBlock(k, acc, can){
+  const p = k.picked;
+  const body = p && p.at
+    ? `<p class="signed${p.short ? ' short' : ''}">${p.short ? '! Собран с нехваткой' : '✓ Собран'} · ${esc(p.by || 'Без имени')}, ${esc(fmtAt(p.at))}</p>`
+    : '<p class="muted">Ещё не подтвердил. Когда всё положено, нажмите «Комплект собран». Можно и с нехваткой.</p>';
+  const btn = !acc && can && k.stage !== 'picked'
+    ? `<button class="btn btn-main" type="button" data-kact="pick" data-kit="${esc(k.id)}">${ICONS.check}${p && p.at ? 'Собран ещё раз (после вопроса)' : 'Комплект собран'}</button>` : '';
+  return `<div class="card conf"><h3>Сборщик</h3>${body}${btn}</div>`;
+}
+function foremanBlock(k, acc, can){
+  const c = k.check;
+  let body;
+  if (acc && c) body = `<p class="signed">✓ Проверил, принял · ${esc(c.by || 'Без имени')}, ${esc(fmtAt(c.at))}</p>`;
+  else if (k.stage === 'question' && c) body = `<p class="signed q">? Есть вопрос · ${esc(c.by || 'Без имени')}, ${esc(fmtAt(c.at))}<br>«${esc(c.note || '')}»</p>`;
+  else body = `<p class="muted">${k.stage === 'picked' ? 'Комплект собран. Проверьте и подтвердите.' : 'Можно посмотреть комплект или проверить его самому.'}</p>`;
+  const btns = !acc && can ? `<div class="kacts"><button class="btn btn-main" type="button" data-kact="accept" data-kit="${esc(k.id)}">${ICONS.check}Проверил, принял</button><button class="btn btn-warn" type="button" data-kact="question" data-kit="${esc(k.id)}">Есть вопрос</button></div>
+    <p class="hint">После «Проверил, принял» положенное спишется со склада как ${esc(issueHow(k))}.</p>` : '';
+  return `<div class="card conf"><h3>Форман</h3>${body}${btns}</div>`;
+}
+
+/* ----- navigation + clicks ----- */
+function openKit(id){ S.kitDelAsk = null; showTab('kit-' + id, true); window.scrollTo({top:0}); }
+function closeKit(){
+  const k = kitById(S.kitOpen);
+  if (k && k.date){ S.kDate = k.date; S.kDateAuto = false; }
+  S.kitDelAsk = null; showTab('komplekty', true); window.scrollTo({top:0});
+}
+document.addEventListener('click', e => {
+  const t = e.target;
+  const ko = t.closest('[data-kit-open]'); if (ko){ openKit(ko.dataset.kitOpen); return; }
+  const kd = t.closest('[data-kday]'); if (kd){ S.kDate = kd.dataset.kday === 'today' ? todayStr() : tomorrowStr(); S.kDateAuto = false; renderKits(); return; }
+  const kt = t.closest('[data-ktruck]'); if (kt){ S.kTruck = upKey(kt.dataset.ktruck); lsSet(TRUCK_KEY, S.kTruck); renderKits(); return; }
+  const kz = t.closest('[data-kzone-new]'); if (kz){ openKitForm(null, {date:S.kDate, zone:kz.dataset.kzoneNew}); return; }
+  if (t.closest('[data-kcopy]')){ copyShort(); return; }
+  const ka = t.closest('[data-kact]'); if (ka) kitAction(ka.dataset.kact, ka.dataset.kit, ka.dataset.line, ka);
+});
+$('#kDate').addEventListener('change', e => { if (e.target.value){ S.kDate = e.target.value; S.kDateAuto = false; renderKits(); } });
+$('#newKitBtn').addEventListener('click', () => openKitForm(null, {date:S.kDate}));
+
+function kitAction(act, kitId, lineId, btn){
+  if (act === 'back'){ closeKit(); return; }
+  const k = kitById(kitId);
+  if (!k){ toast('Комплект не найден. Возможно, его удалили.', {bad:true}); return; }
+  const l = lineId ? liveLines(k).find(x => x.id === lineId) : null;
+  if (lineId && !l){ toast('Эту строку уже убрали из комплекта.', {bad:true}); return; }
+  if (WRITE_ACTS.has(act)){
+    if (!ensureCanWrite()) return;
+    if (!signature()){ openNameSheet(() => kitAction(act, kitId, lineId, btn)); return; }
+  }
+  switch (act){
+    case 'place': placeLine(k, l, 'all'); break;
+    case 'plus': placeLine(k, l, 1); break;
+    case 'minus': placeLine(k, l, -1); break;
+    case 'miss': openMissSheet(k, l); break;
+    case 'unk': flagLine(k, l, l.flag === 'unknown' ? '' : 'unknown', l.flag === 'unknown' ? '' : 'не знаю, есть ли'); break;
+    case 'clear': flagLine(k, l, '', ''); break;
+    case 'editline': openLineSheet(k, l); break;
+    case 'addline': openAddLineSheet(k); break;
+    case 'pick': pickerConfirm(k); break;
+    case 'accept': openAcceptSheet(k); break;
+    case 'question': openQuestionSheet(k); break;
+    case 'edit': openKitForm(k); break;
+    case 'del': S.kitDelAsk = k.id; renderKits(); break;
+    case 'del-no': S.kitDelAsk = null; renderKits(); break;
+    case 'del-yes': deleteKit(k, btn); break;
+    case 'history':
+      S.hist = {q:'', item:'', who:'', where:k.job || k.truck || '', type:''};
+      $('#hq').value = ''; $('#hWhere').value = S.hist.where; S.histLimit = 200;
+      showTab('istoriya', true); window.scrollTo({top:0}); break;
+  }
+}
+function editable(k){
+  if (k.stage === 'accepted'){ toast('Комплект уже принят и выдан. Менять нельзя. Если что-то вернули, запишите «Возврат» на вкладке «Склад».', {bad:true}); return false; }
+  return true;
+}
+
+/* ----- line actions (reservation) ----- */
+async function placeLine(k, l, mode){
+  if (!editable(k)) return;
+  const rid = resId(k.id, l.id);
+  if (busyDocs.has(rid)) return;
+  const need = Math.max(0, Number(l.need) || 0), cur = placedOf(k.id, l.id);
+  const q = round2(Math.max(0, mode === 'all' ? Math.max(need, cur) : cur + mode));
+  if (q === cur) return;
+  const it = itemById(l.itemId), prev = S.resById.get(rid), ref = S.db.doc('reserves/' + rid);
+  const name = lineItemName(l), u = lineUnit(l);
+  busyDocs.add(rid);
+  try {
+    await write(() => ref.set({kitId:k.id, lineId:l.id, itemId:l.itemId, itemName:(it && it.name) || l.itemName || '', unit:(it && it.unit) || l.unit || 'шт',
+      qty:q, status:'active', job:k.job || '', truck:k.truck || '', at:Date.now(), byName:signature(), byId:S.myId || null, sample:!!k.sample}));
+    toast(q > cur ? `Положено ${fmtN(q)} из ${fmtN(need)} ${u}: ${name}. Это резерв, со склада пока не списано.` : `Убрали 1. Теперь ${fmtN(q)} из ${fmtN(need)} ${u}: ${name}.`,
+      {undo: () => prev ? ref.set(stripId(prev)) : ref.delete()});
+  } catch (err){ toast(errText(err), {bad:true}); }
+  finally { busyDocs.delete(rid); }
+}
+async function flagLine(k, l, flag, reason){
+  if (!editable(k)) return;
+  const path = 'kits/' + k.id;
+  if (busyDocs.has(path)) return;
+  const prev = {flag:l.flag || '', reason:l.reason || '', flagBy:l.flagBy || '', flagAt:l.flagAt || 0};
+  const name = lineItemName(l);
+  busyDocs.add(path);
+  try {
+    await write(() => S.db.doc(path).update({lines:{[l.id]:{flag, reason:reason || '', flagBy:flag ? signature() : '', flagAt:flag ? Date.now() : 0}}}));
+    toast(flag === 'missing' ? `Отмечено «не хватает»: ${name}. Строка в списке «Не хватает».` : flag === 'unknown' ? `Отмечено «неизвестно»: ${name}.` : `Отметка снята: ${name}.`,
+      {undo: () => S.db.doc(path).update({lines:{[l.id]:prev}})});
+  } catch (err){ toast(errText(err), {bad:true}); }
+  finally { busyDocs.delete(path); }
+}
+function openMissSheet(k, l){
+  if (!editable(k)) return;
+  const st = lineState(k, l), u = esc(lineUnit(l)), it = itemById(l.itemId);
+  openSheet(`${sheetHead('Не хватает')}
+    <div class="picked">${cellChip(it && it.cell)}<b>${esc(lineItemName(l))}</b><span class="num" style="font-weight:800">нужно ${fmtN(st.need)} · положено ${fmtN(st.placed)} ${u}</span></div>
+    <form id="missForm" novalidate>
+      <div class="field"><label for="missWhy">Почему не хватает? Коротко</label>
+        <input id="missWhy" type="text" value="${esc(l.flag === 'missing' ? l.reason : '')}" placeholder="например, на полке пусто" autocomplete="off" maxlength="120" autofocus>
+        <div class="chips">${MISS_REASONS.map(r => `<button class="chip" type="button" data-why="${esc(r)}">${esc(r)}</button>`).join('')}</div></div>
+      <p class="soft-warn">Это предупреждение, не запрет. Комплект можно подтвердить и с нехваткой. Строка попадёт в список «Не хватает» на ${esc(dayName(k.date))}.</p>
+      <div id="missErr"></div>
+      <div class="form-actions"><button class="btn btn-ghost" type="button" data-act="close">Отмена</button><button class="btn btn-warn" type="submit">Не хватает ${fmtN(st.short)} ${u}</button></div>
+    </form>`, 'kit');
+  const form = $('#missForm');
+  form.addEventListener('click', e => { const c = e.target.closest('[data-why]'); if (c) $('#missWhy').value = c.dataset.why; });
+  form.addEventListener('submit', e => {
+    e.preventDefault();
+    const why = $('#missWhy').value.trim();
+    if (!why){ $('#missErr').innerHTML = '<p class="err-text">Напишите коротко, почему не хватает, или нажмите подсказку.</p>'; return; }
+    closeSheet();
+    const kk = kitById(k.id) || k;
+    flagLine(kk, liveLines(kk).find(x => x.id === l.id) || l, 'missing', why);
+  });
+}
+function openLineSheet(k, l){
+  if (!editable(k)) return;
+  const st = lineState(k, l), u = esc(lineUnit(l)), it = itemById(l.itemId);
+  let ask = false;
+  openSheet(`${sheetHead('Изменить строку')}
+    <div class="picked">${cellChip(it && it.cell)}<b>${esc(lineItemName(l))}</b><span class="num" style="font-weight:800">положено ${fmtN(st.placed)} ${u}</span></div>
+    <form id="lineForm" novalidate>
+      <div class="field"><label for="lnNeed">Сколько нужно в комплект, ${u}</label><input id="lnNeed" type="text" inputmode="decimal" value="${esc(st.need)}" autocomplete="off" autofocus></div>
+      <div id="lnErr"></div>
+      <div class="form-actions"><button class="btn btn-ghost" type="button" data-act="close">Отмена</button><button class="btn btn-main" type="submit" id="lnSave">Сохранить</button></div>
+    </form>
+    <div id="lnDel"></div>`, 'kit');
+  const draw = () => {
+    $('#lnDel').innerHTML = ask
+      ? `<div class="banner err"><p><b>Убрать «${esc(lineItemName(l))}» из комплекта?</b>${st.placed ? ` Положенные ${fmtN(st.placed)} ${u} выйдут из резерва.` : ''}</p><button class="btn btn-warn btn-sm" type="button" id="lnDelYes">Да, убрать</button><button class="btn btn-ghost btn-sm" type="button" id="lnDelNo">Нет</button></div>`
+      : '<div class="form-actions"><button class="btn btn-ghost" type="button" id="lnDelAsk">Убрать строку из комплекта</button></div>';
+  };
+  draw();
+  $('#lnDel').addEventListener('click', async e => {
+    if (e.target.closest('#lnDelAsk')){ ask = true; draw(); return; }
+    if (e.target.closest('#lnDelNo')){ ask = false; draw(); return; }
+    const y = e.target.closest('#lnDelYes'); if (!y) return;
+    y.disabled = true;
+    try {
+      await write(() => S.db.doc('kits/' + k.id).update({lines:{[l.id]:{removed:true, removedBy:signature(), removedAt:Date.now()}}}));
+      if (S.resById.has(resId(k.id, l.id))){ try { await write(() => S.db.doc('reserves/' + resId(k.id, l.id)).delete()); } catch (e2){} }
+      closeSheet(); toast(`Строка убрана: ${lineItemName(l)}.`);
+    } catch (err){ $('#lnErr').innerHTML = `<p class="err-text">${esc(errText(err))}</p>`; y.disabled = false; }
+  });
+  $('#lineForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const n = parseNum($('#lnNeed').value);
+    if (n === null || Number.isNaN(n) || n <= 0){ $('#lnErr').innerHTML = '<p class="err-text">Количество — число больше нуля, например 2.</p>'; return; }
+    const btn = $('#lnSave'); btn.disabled = true;
+    try { await write(() => S.db.doc('kits/' + k.id).update({lines:{[l.id]:{need:round2(n)}}})); closeSheet(); toast(`Теперь нужно ${fmtN(n)} ${unitS(lineUnit(l))}: ${lineItemName(l)}.`); }
+    catch (err){ $('#lnErr').innerHTML = `<p class="err-text">${esc(errText(err))}</p>`; btn.disabled = false; }
+  });
+}
+function openAddLineSheet(k){
+  if (!editable(k)) return;
+  const A = {itemId:''};
+  openSheet(`${sheetHead('Добавить позицию')}
+    <p class="muted">${esc(kitTitle(k))} · зона ${esc(upKey(k.zone))}</p>
+    <form id="addLineForm" novalidate>
+      <div class="field"><span class="lbl">Позиция со склада</span><div id="alItem"></div></div>
+      <div class="field"><label for="alQty">Сколько нужно</label><input id="alQty" type="text" inputmode="decimal" value="1" autocomplete="off"><div class="chips">${[1,2,4,6].map(n => `<button class="chip" type="button" data-alq="${n}">${n}</button>`).join('')}</div></div>
+      <div id="alWarn"></div><div id="alErr"></div>
+      <div class="form-actions"><button class="btn btn-ghost" type="button" data-act="close">Отмена</button><button class="btn btn-main" type="submit" id="alSave">Добавить в комплект</button></div>
+    </form>`, 'kit');
+  const drawItem = focus => {
+    const box = $('#alItem'), it = itemById(A.itemId);
+    if (it){
+      box.innerHTML = `<div class="picked">${cellChip(it.cell)}<b>${esc(it.name)}</b><span class="num" style="font-weight:800">${stockLine(it)}</span><button class="btn btn-ghost btn-sm" type="button" data-al-change="1">Сменить</button></div>`;
+      const dup = liveLines(kitById(k.id) || k).find(x => x.itemId === it.id);
+      $('#alWarn').innerHTML = dup ? `<p class="soft-warn">Эта позиция уже есть в комплекте: нужно ${fmtN(Number(dup.need) || 0)}. Можно поменять количество там, кнопкой «Изменить».</p>` : '';
+    } else {
+      box.innerHTML = `<input id="alSearch" type="search" placeholder="Начните писать: печь, фильтр, B-1" autocomplete="off" aria-label="Поиск позиции"><div class="pick-list" id="alPick" style="margin-top:6px"></div>`;
+      const inp = $('#alSearch');
+      const draw = () => { $('#alPick').innerHTML = pickListHtml(inp.value.trim(), 'al-pick'); };
+      inp.addEventListener('input', draw); draw();
+      $('#alWarn').innerHTML = '';
+      if (focus) setTimeout(() => inp.focus(), 30);
+    }
+  };
+  const form = $('#addLineForm');
+  form.addEventListener('click', e => {
+    const p = e.target.closest('[data-al-pick]'); if (p){ A.itemId = p.dataset.alPick; drawItem(); setTimeout(() => $('#alQty').focus(), 30); return; }
+    if (e.target.closest('[data-al-change]')){ A.itemId = ''; drawItem(true); return; }
+    const q = e.target.closest('[data-alq]'); if (q){ $('#alQty').value = q.dataset.alq; }
+  });
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    const it = itemById(A.itemId), n = parseNum($('#alQty').value), errs = [];
+    if (!it) errs.push('Выберите позицию: начните писать название и нажмите на неё.');
+    if (n === null || Number.isNaN(n) || n <= 0) errs.push('Количество — число больше нуля.');
+    if (errs.length){ $('#alErr').innerHTML = `<p class="err-text">${errs.map(esc).join('<br>')}</p>`; return; }
+    const btn = $('#alSave'); btn.disabled = true;
+    try {
+      await write(() => S.db.doc('kits/' + k.id).update({lines:{[newId('l')]:{itemId:it.id, itemName:it.name, unit:it.unit || 'шт', need:round2(n), order:Date.now(), flag:'', reason:'', flagBy:'', flagAt:0}}}));
+      closeSheet(); toast(`Добавлено в комплект: ${it.name}, ${fmtN(n)} ${unitS(it.unit)}.`);
+    } catch (err){ $('#alErr').innerHTML = `<p class="err-text">${esc(errText(err))}</p>`; btn.disabled = false; }
+  });
+  drawItem(true);
+}
+
+/* ----- confirmations ----- */
+function pickerConfirm(k){
+  if (!editable(k)) return;
+  const info = kitInfo(k);
+  if (!info.total){ toast('В комплекте нет позиций. Сначала добавьте позиции.', {bad:true}); return; }
+  if (!info.incomplete){ doPick(k, false); return; }
+  const rows = info.lines.filter(l => l.st.key !== 'done').map(l => `<li><b>${esc(lineItemName(l))}</b><span class="num">положено ${fmtN(l.st.placed)} из ${fmtN(l.st.need)} ${esc(lineUnit(l))}${l.st.key === 'miss' ? ' · не хватает' : l.st.key === 'unk' ? ' · неизвестно' : ''}</span>${l.flag && l.reason ? `<span class="muted">«${esc(l.reason)}»</span>` : ''}</li>`).join('');
+  openSheet(`${sheetHead('Собран с нехваткой?')}
+    <p>Положено ${info.done} из ${info.total}. Можно подтвердить и так: комплект будет «собран с нехваткой», форман увидит, чего нет.</p>
+    <ul class="short-list">${rows}</ul>
+    <div class="form-actions"><button class="btn btn-ghost" type="button" data-act="close">Назад, доложу</button><button class="btn btn-main" type="button" id="pickShortYes">${ICONS.check}Да, собран с нехваткой</button></div>`, 'kit');
+  $('#pickShortYes').addEventListener('click', () => { closeSheet(); doPick(kitById(k.id) || k, true); });
+}
+async function doPick(k, short){
+  const path = 'kits/' + k.id;
+  if (busyDocs.has(path)) return;
+  const sig = signature(), now = Date.now();
+  const prev = {stage:k.stage || 'open', picked:k.picked || null, check:k.check || null, log:k.log || []};
+  busyDocs.add(path);
+  try {
+    await write(() => S.db.doc(path).update({stage:'picked', picked:{by:sig, at:now, short:!!short}, check:null, log:[...(k.log || []), {kind:'picked', by:sig, at:now, note:short ? 'с нехваткой' : ''}]}));
+    toast(short ? 'Комплект собран с нехваткой. Форман увидит, чего нет.' : 'Комплект собран. Ждёт проверки формана.', {undo: () => S.db.doc(path).update(prev)});
+  } catch (err){ toast(errText(err), {bad:true}); }
+  finally { busyDocs.delete(path); }
+}
+function openQuestionSheet(k){
+  if (!editable(k)) return;
+  openSheet(`${sheetHead('Есть вопрос')}
+    <p class="muted">${esc(kitTitle(k))} · зона ${esc(upKey(k.zone))} · трак ${esc(k.truck || '—')}</p>
+    <form id="qForm" novalidate>
+      <div class="field"><label for="qNote">Что не так? Сборщик увидит это в комплекте</label><textarea id="qNote" maxlength="300" placeholder="например, нужна печь на 80k, а не на 60k" autofocus></textarea>
+        <div class="chips">${Q_REASONS.map(r => `<button class="chip" type="button" data-qr="${esc(r)}">${esc(r)}</button>`).join('')}</div></div>
+      <div id="qErr"></div>
+      <div class="form-actions"><button class="btn btn-ghost" type="button" data-act="close">Отмена</button><button class="btn btn-warn" type="submit" id="qSave">Отправить вопрос</button></div>
+    </form>`, 'kit');
+  const form = $('#qForm');
+  form.addEventListener('click', e => { const c = e.target.closest('[data-qr]'); if (c){ const ta = $('#qNote'); ta.value = ta.value.trim() ? ta.value.trim() + '. ' + c.dataset.qr : c.dataset.qr; ta.focus(); } });
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    const note = $('#qNote').value.trim();
+    if (!note){ $('#qErr').innerHTML = '<p class="err-text">Напишите, что не так, или нажмите подсказку.</p>'; return; }
+    const kk = kitById(k.id) || k, sig = signature(), now = Date.now();
+    const prev = {stage:kk.stage || 'open', check:kk.check || null, log:kk.log || []};
+    const btn = $('#qSave'); btn.disabled = true;
+    try {
+      await write(() => S.db.doc('kits/' + k.id).update({stage:'question', check:{verdict:'question', by:sig, at:now, note}, log:[...(kk.log || []), {kind:'question', by:sig, at:now, note}]}));
+      closeSheet(); toast('Вопрос записан. Комплект отмечен «есть вопрос».', {undo: () => S.db.doc('kits/' + k.id).update(prev)});
+    } catch (err){ $('#qErr').innerHTML = `<p class="err-text">${esc(errText(err))}</p>`; btn.disabled = false; }
+  });
+}
+function openAcceptSheet(k){
+  if (!editable(k)) return;
+  const info = kitInfo(k);
+  const give = info.lines.filter(l => l.st.placed > 0), left = info.lines.filter(l => l.st.placed < l.st.need);
+  const warn = k.stage === 'question' ? 'По комплекту есть вопрос.' : !(k.picked && k.picked.at) ? 'Сборщик ещё не нажал «Комплект собран».' : '';
+  openSheet(`${sheetHead('Проверил, принял?')}
+    <p class="muted">${esc(kitTitle(k))} · зона ${esc(upKey(k.zone))} · трак ${esc(k.truck || '—')}</p>
+    ${warn ? `<p class="soft-warn">${warn} Принять всё равно можно, если вы проверили сами.</p>` : ''}
+    <div class="card" style="padding:14px 16px;display:flex;flex-direction:column;gap:8px"><h3 style="font-size:18px">Спишется со склада</h3>
+      <p class="muted">Запишется как «${esc(issueHow(k))}». С этого момента остаток уменьшится.</p>
+      ${give.length ? `<ul class="list" style="gap:6px">${give.map(l => `<li class="num"><b>${esc(lineItemName(l))}</b> — ${fmtN(l.st.placed)} ${esc(lineUnit(l))}</li>`).join('')}</ul>` : '<p class="soft-warn">Ничего не положено. Со склада ничего не спишется.</p>'}
+    </div>
+    ${left.length ? `<div class="short"><h3>Не положено, не спишется</h3><ul class="short-list">${left.map(l => `<li><b>${esc(lineItemName(l))}</b><span class="num">не хватает ${fmtN(l.st.short)} ${esc(lineUnit(l))}${l.flag && l.reason ? ' · «' + esc(l.reason) + '»' : ''}</span></li>`).join('')}</ul></div>` : ''}
+    <div id="accErr"></div>
+    <div class="form-actions"><button class="btn btn-ghost" type="button" data-act="close">Назад</button><button class="btn btn-main" type="button" id="accYes">${ICONS.check}Да, принял</button></div>`, 'kit');
+  $('#accYes').addEventListener('click', async ev => {
+    const b = ev.currentTarget; b.disabled = true; b.textContent = 'Записываем…';
+    const ok = await doAccept(kitById(k.id) || k, $('#accErr'));
+    if (ok) closeSheet();
+    else if (b.isConnected){ b.disabled = false; b.innerHTML = ICONS.check + 'Да, принял'; }
+  });
+}
+async function doAccept(k, errBox){
+  const show = msg => { if (errBox && errBox.isConnected) errBox.innerHTML = `<p class="err-text">${esc(msg)}</p>`; else toast(msg, {bad:true}); };
+  if (k.stage === 'accepted') return true;
+  const sig = signature() || 'Без имени', now = Date.now(), info = kitInfo(k);
+  const give = info.lines.filter(l => l.st.placed > 0);
+  const type = k.job ? 'job' : 'truck';
+  const docs = give.map(l => {
+    const it = itemById(l.itemId);
+    return {id:moveIdFor(k.id, l.id), data:{itemId:l.itemId, itemName:(it && it.name) || l.itemName || '', unit:(it && it.unit) || l.unit || 'шт', type, qty:round2(l.st.placed),
+      job:k.job || '', truck:k.truck || '', supplier:'', reason:'', note:`комплект, зона ${upKey(k.zone)}`, kitId:k.id, kitLine:l.id,
+      at:now, byName:sig, byId:S.myId || null, sample:!!k.sample}};
+  });
+  let failed = 0, lastErr = null;
+  for (let i = 0; i < docs.length; i += 6){
+    const res = await Promise.allSettled(docs.slice(i, i + 6).map(d => write(() => S.db.doc('moves/' + d.id).set(d.data))));
+    res.forEach(r => { if (r.status === 'rejected'){ failed++; lastErr = r.reason; } });
+  }
+  if (failed){ show(`Списалось не всё: ${failed} из ${docs.length} строк не записались. ${errText(lastErr)} Нажмите «Да, принял» ещё раз, уже записанное не задвоится.`); return false; }
+  const prev = {stage:k.stage || 'open', check:k.check || null, issuedAt:k.issuedAt || 0, issueMoves:k.issueMoves || [], log:k.log || []};
+  try {
+    await write(() => S.db.doc('kits/' + k.id).update({stage:'accepted', check:{verdict:'accepted', by:sig, at:now, note:''}, issuedAt:now, issueMoves:docs.map(d => d.id),
+      log:[...(k.log || []), {kind:'accepted', by:sig, at:now, note:`списано позиций: ${docs.length}`}]}));
+  } catch (err){ show(`Выдача записана, но комплект не отметился принятым. ${errText(err)} Нажмите «Да, принял» ещё раз.`); return false; }
+  give.forEach(l => { write(() => S.db.doc('reserves/' + resId(k.id, l.id)).update({status:'issued', moveId:moveIdFor(k.id, l.id), issuedAt:now})).catch(() => {}); });
+  toast(`Принято. Со склада списано ${docs.length} ${plural(docs.length, 'позиция', 'позиции', 'позиций')}: ${issueHow(k)}.`, {undo: async () => {
+    await Promise.all(docs.map(d => S.db.doc('moves/' + d.id).delete()));
+    await S.db.doc('kits/' + k.id).update(prev);
+    give.forEach(l => { S.db.doc('reserves/' + resId(k.id, l.id)).update({status:'active'}).catch(() => {}); });
+  }});
+  return true;
+}
+async function deleteKit(k, btn){
+  if (btn) btn.disabled = true;
+  S.kitDelAsk = null;
+  if (S.kitOpen === k.id){ if (k.date) S.kDate = k.date; S.kDateAuto = false; showTab('komplekty', true); }
+  const paths = S.reserves.filter(r => r.kitId === k.id).map(r => 'reserves/' + r.id);
+  let failed = 0;
+  for (let i = 0; i < paths.length; i += 8){
+    const res = await Promise.allSettled(paths.slice(i, i + 8).map(p => write(() => S.db.doc(p).delete())));
+    res.forEach(r => { if (r.status === 'rejected') failed++; });
+  }
+  try { await write(() => S.db.doc('kits/' + k.id).delete()); }
+  catch (err){ toast(errText(err), {bad:true}); return; }
+  toast((k.stage === 'accepted' ? `Комплект #${k.job || '—'} удалён. Выдача со склада осталась в истории.` : `Комплект #${k.job || '—'} удалён, резерв снят.`) + (failed ? ` Не удалились записи резерва (${failed}), на остаток они не влияют.` : ''));
+}
+async function copyShort(){
+  let kits = S.kits.filter(k => k.date === S.kDate);
+  if (S.kTruck) kits = kits.filter(k => upKey(k.truck) === S.kTruck);
+  const rows = [];
+  for (const k of kits) for (const l of kitInfo(k).lines){
+    if (l.st.key !== 'miss' && l.st.key !== 'unk') continue;
+    rows.push(`— ${lineItemName(l)}: ${l.st.key === 'miss' ? 'не хватает ' + fmtN(l.st.short) + ' ' + lineUnit(l) : 'неизвестно, есть ли'} (зона ${upKey(k.zone)}, заказ #${k.job || '—'}, трак ${k.truck || '—'})${l.reason ? '. ' + l.reason : ''}`);
+  }
+  if (!rows.length) return;
+  const text = `Не хватает на ${dayName(S.kDate)}, ${dayLong(S.kDate)}:\n` + rows.join('\n');
+  try { await navigator.clipboard.writeText(text); toast('Список скопирован. Вставьте его в сообщение.'); }
+  catch (e){
+    openSheet(`${sheetHead('Скопируйте вручную')}<p class="muted">Не получилось скопировать само. Текст выделен, скопируйте его.</p><div class="field"><label for="copyTa">Список</label><textarea id="copyTa" readonly style="min-height:180px">${esc(text)}</textarea></div><div class="form-actions"><button class="btn btn-main" type="button" data-act="close">Готово</button></div>`, 'copy');
+    setTimeout(() => { const ta = $('#copyTa'); if (ta){ ta.focus(); ta.select(); } }, 60);
+  }
+}
+
+/* ----- create / edit kit ----- */
+function openKitForm(k, preset){
+  if (!ensureCanWrite()) return;
+  if (!signature()){ openNameSheet(() => openKitForm(k, preset)); return; }
+  if (k && !editable(k)) return;
+  const edit = !!k;
+  const F = {date: edit ? k.date : ((preset && preset.date) || S.kDate || tomorrowStr()), zone: edit ? upKey(k.zone) : upKey(preset && preset.zone), lines: []};
+  if (!F.zone) F.zone = firstFreeZone(F.date, null) || 'A1';
+  const chipRow = (attr, vals) => vals.length ? `<div class="chips">${vals.map(v => `<button class="chip" type="button" data-${attr}="${esc(v)}">${esc(v)}</button>`).join('')}</div>` : '';
+  openSheet(`${sheetHead(edit ? 'Изменить комплект' : 'Новый комплект')}
+    <form id="kitForm" novalidate>
+      <div class="field"><span class="lbl" id="kfDayLbl">На какой день</span>
+        <div class="chips" role="group" aria-labelledby="kfDayLbl"><button class="chip" type="button" data-kf-day="today">Сегодня</button><button class="chip" type="button" data-kf-day="tomorrow">Завтра</button></div>
+        <input id="kfDate" type="date" value="${esc(F.date)}" aria-label="Дата комплекта"></div>
+      <div class="row2">
+        <div class="field"><label for="kfJob">Номер заказа</label><input id="kfJob" type="text" inputmode="numeric" value="${esc(edit ? k.job || '' : '')}" placeholder="например, 4610" autocomplete="off" maxlength="20"${edit ? '' : ' autofocus'}></div>
+        <div class="field"><label for="kfLabel">Коротко, что за работа</label><input id="kfLabel" type="text" value="${esc(edit ? k.label || '' : '')}" placeholder="например, замена печи" autocomplete="off" maxlength="60"></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label for="kfTruck">Трак</label><input id="kfTruck" type="text" value="${esc(edit ? k.truck || '' : (S.kTruck || ''))}" placeholder="например, T2" autocomplete="off" maxlength="12">${chipRow('kf-truck', truckOptions())}</div>
+        <div class="field"><label for="kfForeman">Форман</label><input id="kfForeman" type="text" value="${esc(edit ? k.foreman || '' : '')}" placeholder="имя формана" autocomplete="off" maxlength="40">${chipRow('kf-foreman', foremanOptions())}</div>
+      </div>
+      <div class="field"><span class="lbl" id="kfZoneLbl">Зона, где лежит комплект</span><div class="zpick" role="group" aria-labelledby="kfZoneLbl" id="kfZones"></div></div>
+      ${edit ? '<p class="hint">Позиции меняются в самом комплекте: «Добавить позицию» и «Изменить» у строки.</p>' : `
+      <div class="field"><span class="lbl">Что положить</span>
+        <div id="kfLines" class="group" style="gap:8px"></div>
+        <label for="kfSearch" class="sr">Найти позицию</label>
+        <input id="kfSearch" type="search" placeholder="Найти и добавить: печь, фильтр, B-1" autocomplete="off">
+        <div class="pick-list" id="kfPick"></div>
+        <button class="btn btn-ghost" type="button" id="kfCopyBtn">Скопировать из прошлого комплекта</button>
+        <div id="kfCopy" class="pick-list" hidden></div>
+      </div>`}
+      <div id="kfWarn"></div><div id="kfErr"></div>
+      <div class="form-actions"><button class="btn btn-ghost" type="button" data-act="close">Отмена</button><button class="btn btn-main" type="submit" id="kfSave">${edit ? 'Сохранить' : 'Создать комплект'}</button></div>
+    </form>`, 'kitform');
+  const form = $('#kitForm');
+  const others = () => S.kits.filter(x => x.date === F.date && (!k || x.id !== k.id));
+  function drawDay(){ form.querySelectorAll('[data-kf-day]').forEach(b => b.setAttribute('aria-pressed', String((b.dataset.kfDay === 'today' ? todayStr() : tomorrowStr()) === F.date))); }
+  function drawZones(){
+    $('#kfZones').innerHTML = ZONES.map(z => { const busy = others().find(x => upKey(x.zone) === z); return `<button type="button" class="${zoneClass(z)}" data-kf-zone="${z}" aria-pressed="${F.zone === z}"><span>${z}</span><small>${busy ? '#' + esc(busy.job || '?') : 'свободна'}</small></button>`; }).join('');
+  }
+  function drawWarn(){
+    const w = [];
+    const busy = others().find(x => upKey(x.zone) === F.zone);
+    if (busy) w.push(`В зоне ${esc(F.zone)} на ${esc(dayName(F.date))} уже лежит комплект #${esc(busy.job || '?')}. Можно и так, но лучше выбрать свободную зону.`);
+    const job = $('#kfJob').value.trim().replace(/^#/, '');
+    const dup = job && others().find(x => String(x.job) === job);
+    if (dup) w.push(`Заказ #${esc(job)} на этот день уже есть: зона ${esc(upKey(dup.zone))}.`);
+    $('#kfWarn').innerHTML = w.map(t => `<p class="soft-warn">${t}</p>`).join('');
+  }
+  function drawLines(){
+    const box = $('#kfLines'); if (!box) return;
+    box.innerHTML = F.lines.length ? F.lines.map((x, i) => {
+      const it = itemById(x.itemId), nm = esc(it ? it.name : 'Позиция удалена'), u = esc(unitS(it && it.unit));
+      return `<div class="fline">${cellChip(it && it.cell)}<span class="n">${nm}</span>
+        <div class="stepper"><button class="btn btn-soft round sm" type="button" data-fl-dec="${i}" aria-label="Меньше: ${nm}">−</button><input class="num" type="text" inputmode="decimal" data-fl-qty="${i}" value="${esc(x.need)}" aria-label="Сколько нужно: ${nm}"><span class="u">${u}</span><button class="btn btn-soft round sm" type="button" data-fl-inc="${i}" aria-label="Больше: ${nm}">+</button></div>
+        <button class="x" type="button" data-fl-del="${i}" aria-label="Убрать: ${nm}">×</button></div>`;
+    }).join('') : '<p class="muted">Пока пусто. Найдите позицию ниже и нажмите на неё. Или скопируйте из прошлого комплекта.</p>';
+  }
+  function drawPick(){ const box = $('#kfPick'); if (!box) return; const q = $('#kfSearch').value.trim(); box.innerHTML = q ? pickListHtml(q, 'kf-pick') : ''; }
+  function drawCopy(){
+    const list = [...S.kits].filter(x => liveLines(x).length).sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')) || (b.createdAt || 0) - (a.createdAt || 0)).slice(0, 8);
+    $('#kfCopy').innerHTML = list.length ? '<p class="hint">Нажмите на комплект, его позиции добавятся сюда.</p>' + list.map(x => `<button class="pick" type="button" data-kf-copy="${esc(x.id)}">${zoneTag(x.zone)}<span class="n">${esc(kitTitle(x))}<br><small class="muted">на ${esc(dayName(x.date))} · ${liveLines(x).length} поз.${x.sample ? ' · пример' : ''}</small></span></button>`).join('') : '<p class="muted">Прошлых комплектов пока нет.</p>';
+  }
+  function addLine(itemId){ const ex = F.lines.find(x => x.itemId === itemId); if (ex) ex.need = round2((parseNum(ex.need) || 0) + 1); else F.lines.push({itemId, need:1}); drawLines(); }
+  function copyFrom(id){
+    const src = kitById(id); if (!src) return;
+    let added = 0, skipped = 0;
+    for (const l of liveLines(src)){
+      if (!itemById(l.itemId)){ skipped++; continue; }
+      if (F.lines.some(x => x.itemId === l.itemId)) continue;
+      F.lines.push({itemId:l.itemId, need:Number(l.need) || 1}); added++;
+    }
+    if (!$('#kfLabel').value.trim() && src.label) $('#kfLabel').value = src.label;
+    $('#kfCopy').hidden = true; drawLines();
+    toast(`Скопировано позиций: ${added}.` + (skipped ? ` Пропущено ${skipped}: их больше нет на складе.` : '') + ' Проверьте количество.');
+  }
+  form.addEventListener('click', e => {
+    const t = e.target;
+    const d = t.closest('[data-kf-day]'); if (d){ F.date = d.dataset.kfDay === 'today' ? todayStr() : tomorrowStr(); $('#kfDate').value = F.date; drawDay(); drawZones(); drawWarn(); return; }
+    const z = t.closest('[data-kf-zone]'); if (z){ F.zone = z.dataset.kfZone; drawZones(); drawWarn(); return; }
+    const tr = t.closest('[data-kf-truck]'); if (tr){ $('#kfTruck').value = tr.dataset.kfTruck; return; }
+    const fm = t.closest('[data-kf-foreman]'); if (fm){ $('#kfForeman').value = fm.dataset.kfForeman; return; }
+    const p = t.closest('[data-kf-pick]'); if (p){ addLine(p.dataset.kfPick); $('#kfSearch').value = ''; drawPick(); $('#kfSearch').focus(); return; }
+    const inc = t.closest('[data-fl-inc]'); if (inc){ const x = F.lines[+inc.dataset.flInc]; x.need = round2((parseNum(x.need) || 0) + 1); drawLines(); return; }
+    const dec = t.closest('[data-fl-dec]'); if (dec){ const x = F.lines[+dec.dataset.flDec]; const n = parseNum(x.need) || 0; if (n > 1){ x.need = round2(n - 1); drawLines(); } return; }
+    const del = t.closest('[data-fl-del]'); if (del){ F.lines.splice(+del.dataset.flDel, 1); drawLines(); return; }
+    if (t.closest('#kfCopyBtn')){ const box = $('#kfCopy'); box.hidden = !box.hidden; if (!box.hidden) drawCopy(); return; }
+    const cp = t.closest('[data-kf-copy]'); if (cp){ copyFrom(cp.dataset.kfCopy); }
+  });
+  form.addEventListener('input', e => {
+    const t = e.target;
+    if (t.id === 'kfSearch') drawPick();
+    else if (t.dataset && t.dataset.flQty !== undefined){ const x = F.lines[+t.dataset.flQty]; if (x) x.need = t.value; }
+    else if (t.id === 'kfJob') drawWarn();
+  });
+  $('#kfDate').addEventListener('change', e => { if (e.target.value){ F.date = e.target.value; drawDay(); drawZones(); drawWarn(); } });
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    const errs = [];
+    const date = $('#kfDate').value || F.date;
+    const job = $('#kfJob').value.trim().replace(/^#/, '');
+    const label = $('#kfLabel').value.trim();
+    const truck = upKey($('#kfTruck').value);
+    const foreman = $('#kfForeman').value.trim();
+    if (!date) errs.push('Выберите день.');
+    if (!job) errs.push('Напишите номер заказа, например 4610.');
+    if (!truck) errs.push('Укажите трак, например T2.');
+    if (!F.zone) errs.push('Выберите зону.');
+    const lines = [];
+    if (!edit){
+      if (!F.lines.length) errs.push('Добавьте хотя бы одну позицию: найдите её в поиске.');
+      for (const x of F.lines){
+        const n = parseNum(x.need), it = itemById(x.itemId);
+        if (n === null || Number.isNaN(n) || n <= 0) errs.push(`Количество для «${it ? it.name : 'позиции'}» — число больше нуля.`);
+        else if (it) lines.push({it, need:round2(n)});
+      }
+    }
+    if (errs.length){ $('#kfErr').innerHTML = `<p class="err-text">${errs.map(esc).join('<br>')}</p>`; return; }
+    $('#kfErr').innerHTML = '';
+    const sig = signature(), now = Date.now(), btn = $('#kfSave');
+    btn.disabled = true; btn.textContent = 'Сохраняем…';
+    try {
+      if (edit){
+        const kk = kitById(k.id) || k;
+        await write(() => S.db.doc('kits/' + k.id).update({date, job, label, truck, foreman, zone:F.zone, log:[...(kk.log || []), {kind:'edited', by:sig, at:now, note:''}]}));
+        closeSheet(); toast('Комплект сохранён.');
+      } else {
+        const id = newId('k'), L = {};
+        lines.forEach((x, i) => { L['l' + (i + 1) + Math.random().toString(36).slice(2, 5)] = {itemId:x.it.id, itemName:x.it.name, unit:x.it.unit || 'шт', need:x.need, order:i + 1, flag:'', reason:'', flagBy:'', flagAt:0}; });
+        await write(() => S.db.doc('kits/' + id).set({date, job, label, truck, foreman, zone:F.zone, lines:L, stage:'open', picked:null, check:null, issuedAt:0, issueMoves:[],
+          log:[{kind:'created', by:sig, at:now, note:''}], createdAt:now, byName:sig, byId:S.myId || null, sample:false}));
+        closeSheet();
+        S.kDate = date; S.kDateAuto = false;
+        toast(`Комплект создан: зона ${F.zone}, заказ #${job}.`);
+        S.kitPending = id; S.kitPendingAt = Date.now();
+        openKit(id);
+      }
+    } catch (err){ $('#kfErr').innerHTML = `<p class="err-text">${esc(errText(err))}</p>`; btn.disabled = false; btn.textContent = edit ? 'Сохранить' : 'Создать комплект'; }
+  });
+  drawDay(); drawZones(); drawWarn(); drawLines();
+}
+
+/* ---------- render loop ---------- */
+let rq = false;
+function renderCurrent(){
+  if (rq) return; rq = true;
+  requestAnimationFrame(() => {
+    rq = false;
+    renderWho(); renderBanners(); renderBuy();
+    if (S.tab === 'komplekty') renderKits();
+    if (S.tab === 'sklad') renderSklad();
+    if (S.tab === 'zakupka') renderBuy();
+    if (S.tab === 'istoriya') renderHist();
+    if (S.tab === 'lom') renderScrap();
+    refreshItemSheet();
+  });
+}
+
+/* ---------- boot ---------- */
+function subscribe(name){
+  S.db.collection(name).onSnapshot(snap => {
+    S[name] = snap.docs.map(d => ({id:d.id, ...d.data()}));
+    S.loaded[name] = true;
+    if (name === 'moves') computeStock();
+    if (name === 'kits' || name === 'reserves' || name === 'moves') computeKits();
+    if (name === 'kits') autoDay();
+    if (S.conn !== 'ok') setConn('ok', 'Общая база');
+    renderCurrent();
+  }, err => {
+    setConn('bad', 'Нет связи');
+    toast(errText(err), {bad:true});
+    renderCurrent();
+  });
+}
+async function boot(){
+  S.kDate = tomorrowStr();
+  S.kTruck = upKey(lsGet(TRUCK_KEY));
+  showTab(location.hash.slice(1) || 'komplekty', false);
+  renderWho();
+  const C = window.claude;
+  if (!C || typeof C.use !== 'function'){ setConn('bad', 'Нет базы'); renderCurrent(); return; }
+  const [db, user] = await Promise.all([C.use('db').catch(() => null), C.use('user').catch(() => null)]);
+  S.user = user;
+  if (user){
+    try {
+      const me = await user.me();
+      S.myId = me.id || null; S.accountName = me.name || '';
+      const c = await user.can('data.write');
+      S.canWrite = c;
+    } catch (e){}
+  }
+  renderWho();
+  if (!db){ setConn('bad', 'Нет базы'); renderCurrent(); return; }
+  S.db = db;
+  setConn(window.__localDemo ? 'ok' : 'wait', window.__localDemo ? 'Демо: данные только в этом браузере' : 'Загружаем…');
+  subscribe('items'); subscribe('moves'); subscribe('scrap'); subscribe('kits'); subscribe('reserves');
+  renderCurrent();
+}
+boot();
+})();
+</script>
+<p style="font:13px/1.4 system-ui,sans-serif;text-align:center;color:#667;margin:24px 16px 32px">Демо-версия: данные хранятся только в этом браузере. <a href="#" onclick="window.__resetDemo&&window.__resetDemo();return false">Сбросить демо-данные</a></p></body></html>
