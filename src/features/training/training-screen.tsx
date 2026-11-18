@@ -1,62 +1,123 @@
-// Вкладка «Смена»: обучение на смене (в разработке) и общая заметка смены.
-// Заметка показывает работу синхронизации: на телефоне и в веб-версии одной команды она одна и та же.
-import { useEffect, useRef, useState } from 'react';
+// Вкладка «Смена»: тренажёр формана (учебная смена из 10 решений, 3 практики, справка)
+// и общая «Заметка смены» команды. Тексты — в ./content (по языкам), логика — в ./logic.ts.
+import { useRef, useState } from 'react';
+import { Platform, ScrollView, StyleSheet, Text, View, type ViewInstance } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { SyncBadge } from '@/components/sync-badge';
-import { Body, Button, Card, Field, Muted, Notice, Screen } from '@/components/ui';
-import { t } from '@/lib/i18n';
-import { getDoc, saveDoc, useSyncStatus } from '@/lib/sync';
+import { getLanguage, t } from '@/lib/i18n';
+import { colors, font, MAX_WIDTH, radius, space, ui } from '@/lib/theme';
 
-// Где лежит заметка: коллекция shift (в базе — fm_shift), документ note
-const COL = 'shift';
-const ID = 'note';
-type Note = { text: string };
+import { fill, getTrainingContent } from './content';
+import { LessonSection } from './lesson-section';
+import { buildReport, fileDate } from './logic';
+import { Eyebrow, Segments, Small } from './parts';
+import { PracticeSection } from './practice-section';
+import { useTrainingProgress } from './progress-store';
+import { ReferenceSection } from './reference-section';
+import { exportText } from './share';
+import { ShiftNote } from './shift-note';
+import { useRevealScroll } from './use-reveal';
+
+type Seg = 'steps' | 'practice' | 'ref';
 
 export default function TrainingScreen() {
-  const status = useSyncStatus();
-  const team = status.team?.space ?? '';
-  const [text, setText] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<{ kind: 'ok' | 'warn'; text: string } | null>(null);
-  const edited = useRef(false); // пользователь начал печатать — загруженный текст его не затирает
-  const loadedTeam = useRef<string | null>(null);
+  const c = getTrainingContent(getLanguage());
+  const { progress, loaded, saveState, save } = useTrainingProgress(c.lessons);
+  const { viewport, scroll, content, reveal } = useRevealScroll();
+  const [seg, setSeg] = useState<Seg>('steps');
+  const [reportMsg, setReportMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const segRef = useRef<ViewInstance>(null);
 
-  // Загрузить заметку при открытии и при смене команды
-  useEffect(() => {
-    let alive = true;
-    if (loadedTeam.current !== null && loadedTeam.current !== team) edited.current = false; // другая команда — её заметка
-    loadedTeam.current = team;
-    getDoc<Note>(COL, ID).then(d => {
-      if (alive && !edited.current) setText(typeof d?.text === 'string' ? d.text : '');
-    });
-    return () => { alive = false; };
-  }, [team]);
+  const web = Platform.OS === 'web';
+  const reportLabel = web ? c.ui.reportWeb : c.ui.reportNative;
+  const finishReportLabel = web ? c.finish.reportWeb : c.finish.reportNative;
 
-  async function onSave() {
-    setBusy(true);
-    const r = await saveDoc(COL, ID, { text });
-    setBusy(false);
-    if (!r.ok) setMsg({ kind: 'warn', text: t('training.saveFail') });
-    else setMsg({ kind: 'ok', text: r.synced ? t('training.savedCloud') : t('training.savedLocal') });
+  async function onReport() {
+    const now = new Date();
+    const ok = await exportText(buildReport(progress, c, now), fill(c.report.fileName, { date: fileDate(now) }), c.report.shareTitle);
+    setReportMsg(ok ? (web ? { ok: true, text: c.ui.reportDone } : null) : { ok: false, text: c.ui.reportFail });
+  }
+
+  function onSeg(k: Seg) {
+    setSeg(k);
+    setReportMsg(null);
+    // начало раздела — к верху экрана, если переключатель уже уехал вверх
+    setTimeout(() => void reveal(segRef.current, null, 'top'), 80);
   }
 
   return (
-    <Screen title={t('training.title')}>
-      <Body>{t('training.intro')}</Body>
-      <Card title={t('training.noteTitle')}>
-        <Muted>{t('training.noteHint')}</Muted>
-        <Field
-          label={t('training.noteTitle')}
-          value={text}
-          onChangeText={v => { edited.current = true; setText(v); setMsg(null); }}
-          placeholder={t('training.notePlaceholder')}
-          multiline
-          testID="shift-note"
-        />
-        <Button title={t('training.save')} onPress={onSave} disabled={busy} testID="shift-save" />
-        {msg ? <Notice kind={msg.kind} text={msg.text} testID="shift-msg" /> : null}
-      </Card>
-      <SyncBadge />
-    </Screen>
+    <SafeAreaView style={s.safe} edges={['top', 'left', 'right']}>
+      <View ref={viewport} collapsable={false} style={s.viewport}>
+        <ScrollView ref={scroll} keyboardShouldPersistTaps="handled">
+          <View ref={content} collapsable={false} style={s.scroll}>
+            <View style={s.column}>
+              <Text style={ui.h1} accessibilityRole="header">{t('training.title')}</Text>
+
+              <View style={s.hero}>
+                <Eyebrow>{c.header.eyebrow}</Eyebrow>
+                <Text style={s.heroTitle}>{c.header.title}</Text>
+                <Text style={ui.body}>{c.header.lead}</Text>
+                <View style={s.pills}>
+                  {c.header.pills.map(p => <Text key={p} style={s.pill}>{p}</Text>)}
+                </View>
+              </View>
+
+              <View ref={segRef} collapsable={false}>
+                <Segments<Seg>
+                  items={[
+                    { key: 'steps', label: c.ui.segSteps },
+                    { key: 'practice', label: c.ui.segPractice },
+                    { key: 'ref', label: c.ui.segRef },
+                  ]}
+                  value={seg}
+                  onChange={onSeg}
+                />
+              </View>
+
+              {!loaded ? <Small>{c.ui.loading}</Small> : null}
+              {loaded && seg === 'steps' ? (
+                <LessonSection
+                  c={c}
+                  progress={progress}
+                  saveState={saveState}
+                  save={save}
+                  reveal={reveal}
+                  onReport={onReport}
+                  reportLabel={reportLabel}
+                  finishReportLabel={finishReportLabel}
+                  reportMsg={reportMsg}
+                />
+              ) : null}
+              {loaded && seg === 'practice' ? <PracticeSection c={c} progress={progress} save={save} reveal={reveal} /> : null}
+              {seg === 'ref' ? <ReferenceSection c={c} onReport={onReport} reportLabel={reportLabel} reportMsg={reportMsg} /> : null}
+
+              <ShiftNote />
+              <SyncBadge />
+            </View>
+          </View>
+        </ScrollView>
+      </View>
+    </SafeAreaView>
   );
 }
+
+const s = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: colors.bg },
+  viewport: { flex: 1 },
+  scroll: { padding: space.md, paddingBottom: space.xl },
+  column: { width: '100%', maxWidth: MAX_WIDTH, alignSelf: 'center', gap: space.md },
+  hero: { gap: space.sm },
+  heroTitle: { fontSize: font.large, fontWeight: '800', color: colors.text, lineHeight: font.large * 1.25 },
+  pills: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
+  pill: {
+    fontSize: font.small,
+    fontWeight: '700',
+    color: colors.infoText,
+    backgroundColor: colors.infoBg,
+    borderRadius: radius.sm,
+    paddingHorizontal: space.sm,
+    paddingVertical: space.xs,
+    overflow: 'hidden',
+  },
+});
