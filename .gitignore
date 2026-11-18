@@ -30,7 +30,8 @@ yarn-error.*
 .DS_Store
 *.pem
 
-# local env files
+# local env files (адрес и ключ базы — только локально, в git не попадают)
+.env
 .env*.local
 
 # typescript

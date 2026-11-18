@@ -1,12 +1,12 @@
 {
   "expo": {
-    "name": "forman-app",
+    "name": "Форман",
     "slug": "forman-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "formanapp",
-    "userInterfaceStyle": "automatic",
+    "scheme": "forman",
+    "userInterfaceStyle": "light",
     "ios": {
       "icon": "./assets/expo.icon"
     },
@@ -20,7 +20,7 @@
       "predictiveBackGestureEnabled": false
     },
     "web": {
-      "output": "server",
+      "output": "static",
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
