@@ -1,0 +1,203 @@
+{
+  "schema": 1,
+  "job": "DEMO-01",
+  "updated": "2026-11-18T22:44:13.479Z",
+  "items": [
+    {
+      "id": "furnace",
+      "name": "Furnace · условная модель F-01",
+      "required": "1",
+      "unit": "шт.",
+      "source": "",
+      "hint": "Вымышленная модель; в реальной смене требуется полная фактическая маркировка.",
+      "ordered": "1",
+      "actual": "1",
+      "status": "present",
+      "location": "ТЕСТ: трак 7, полка А",
+      "note": "ТЕСТ: вымышленная запись, не заказ"
+    },
+    {
+      "id": "thermostat",
+      "name": "Термостат · условная модель T-01",
+      "required": 1,
+      "unit": "шт.",
+      "source": "",
+      "hint": "Условная запись. Совместимость оборудования не подтверждена.",
+      "ordered": "",
+      "actual": "",
+      "status": "unknown",
+      "location": "",
+      "note": ""
+    },
+    {
+      "id": "filter",
+      "name": "Filter base",
+      "required": null,
+      "unit": "комплект",
+      "source": "",
+      "hint": "Входит в scope. Размер и состав не указаны.",
+      "ordered": "",
+      "actual": "",
+      "status": "unknown",
+      "location": "",
+      "note": ""
+    },
+    {
+      "id": "gas",
+      "name": "Gas valve",
+      "required": null,
+      "unit": "комплект",
+      "source": "",
+      "hint": "Уточнить, какой именно узел и объём замены.",
+      "ordered": "",
+      "actual": "",
+      "status": "unknown",
+      "location": "",
+      "note": ""
+    },
+    {
+      "id": "flue",
+      "name": "Flue pipe",
+      "required": "2",
+      "unit": "комплект",
+      "source": "",
+      "hint": "Диаметр, длина, фитинги и объём не указаны.",
+      "ordered": "2",
+      "actual": "2",
+      "status": "present",
+      "location": "ТЕСТ: трак 7, крыша",
+      "note": "ТЕСТ: условно 3\", 2 колена"
+    },
+    {
+      "id": "plenum",
+      "name": "Переделка supply plenum",
+      "required": null,
+      "unit": "комплект",
+      "source": "",
+      "hint": "Материалы и размеры определить по фактическим замерам.",
+      "ordered": "",
+      "actual": "",
+      "status": "unknown",
+      "location": "",
+      "note": ""
+    },
+    {
+      "id": "registers",
+      "name": "Bar type supply/return registers",
+      "required": "6",
+      "unit": "шт.",
+      "source": "",
+      "hint": "Нужны размеры и разделение supply / return.",
+      "ordered": "6",
+      "actual": "4",
+      "status": "missing",
+      "location": "ТЕСТ: склад, стеллаж 3",
+      "note": "ТЕСТ: двух решёток нет"
+    }
+  ],
+  "questions": [
+    {
+      "id": "q1",
+      "text": "Размеры шести решёток и какие из них supply / return",
+      "source": "",
+      "answer": "",
+      "resolved": false
+    },
+    {
+      "id": "q2",
+      "text": "Filter base, gas valve, flue и plenum: точный состав и размеры",
+      "source": "",
+      "answer": "ТЕСТ: вымышленный ответ — состав уточнён у условного менеджера",
+      "resolved": true
+    },
+    {
+      "id": "q3",
+      "text": "Уточнить причину предупреждающего тега до зависимых работ",
+      "source": "",
+      "answer": "",
+      "resolved": false
+    },
+    {
+      "id": "q4",
+      "text": "Подтвердить применимые требования permit / инспекции у ответственного",
+      "source": "",
+      "answer": "",
+      "resolved": false
+    },
+    {
+      "id": "q5",
+      "text": "Согласовать окно прибытия и ориентир завершения отдельно",
+      "source": "",
+      "answer": "",
+      "resolved": false
+    }
+  ],
+  "phases": [
+    {
+      "id": "morning",
+      "title": "До выезда",
+      "checks": [
+        [
+          "scope",
+          "Scope и вопросы просмотрены"
+        ],
+        [
+          "stock",
+          "Выдача и фактический комплект сверены"
+        ],
+        [
+          "kits",
+          "Наборы и недостачи записаны"
+        ]
+      ]
+    },
+    {
+      "id": "start",
+      "title": "Перед запуском",
+      "checks": [
+        [
+          "hold",
+          "Незакрытые технические вопросы переданы ответственному"
+        ],
+        [
+          "oem",
+          "Проверки по документации конкретного оборудования выполнены и записаны"
+        ]
+      ]
+    },
+    {
+      "id": "finish",
+      "title": "Сдача",
+      "checks": [
+        [
+          "tests",
+          "Результаты испытаний записаны, замечания не скрыты"
+        ],
+        [
+          "photos",
+          "Фото после и уборка выполнены"
+        ],
+        [
+          "restock",
+          "Расход и пополнение трака записаны"
+        ]
+      ]
+    }
+  ],
+  "checks": {},
+  "notes": "ТЕСТ: заметка смены, вымышленные данные",
+  "team": [
+    {
+      "role": "ТЕСТ: монтажник А",
+      "task": "Демонтаж старой печи; готово, когда место расчищено",
+      "status": "open",
+      "next": "—"
+    },
+    {
+      "role": "ТЕСТ: помощник Б",
+      "task": "Решётки supply/return",
+      "status": "blocked",
+      "next": "Нет размеров → спросить менеджера → до монтажа решёток"
+    }
+  ]
+}
