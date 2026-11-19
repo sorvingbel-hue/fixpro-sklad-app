@@ -46,8 +46,9 @@ const precache = ['./', ...files.map(f => encodeURI(f))];
 let src = readFileSync(SW, 'utf8');
 const V = "'__FORMAN_SW_VERSION__'";
 const P = '[/*__FORMAN_SW_PRECACHE__*/]';
-if (!src.includes(V) || !src.includes(P)) {
-  console.error('sw-stamp: в sw.js нет меток версии/списка (уже подставлено или шаблон изменён)');
+const count = (s, sub) => s.split(sub).length - 1;
+if (count(src, V) !== 1 || count(src, P) !== 1) {
+  console.error('sw-stamp: в sw.js метки версии и списка должны встречаться ровно по одному разу (уже подставлено или шаблон изменён)');
   process.exit(1);
 }
 src = src.replace(V, `'${version}'`).replace(P, JSON.stringify(precache, null, 1));

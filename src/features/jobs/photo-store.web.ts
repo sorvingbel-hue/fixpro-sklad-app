@@ -119,11 +119,15 @@ function dataUrlToBlob(u: string): Blob {
 }
 
 // Полные фото как data:URL для файла копии; missing — фото, которых в этом браузере уже нет
-export async function photoDataUrls(ids: string[]): Promise<{ urls: Record<string, string>; missing: number }> {
+export async function photoDataUrls(
+  ids: string[],
+  onProgress?: (done: number, total: number) => void,
+): Promise<{ urls: Record<string, string>; missing: number }> {
   const out: Record<string, string> = {};
   let missing = 0;
   if (!PHOTOS_SUPPORTED) return { urls: out, missing: ids.length };
-  for (const id of ids) {
+  for (const [k, id] of ids.entries()) {
+    onProgress?.(k, ids.length);
     try {
       const b = await tx<Blob>('readonly', s => s.get(`${id}:full`));
       if (!b) { missing++; continue; }

@@ -1,13 +1,16 @@
 // Работа без сети в веб-версии: регистрация service worker (public/sw.js → dist/sw.js) и «Есть обновление».
 // Только веб и только сборка для сайта (`npm run web:export`). В разработке (__DEV__) SW не ставим,
 // а оставшийся от сборки на этом адресе — снимаем, чтобы он не подсовывал старые файлы.
-// Новая версия не включается сама: бригадир видит «Есть обновление» и нажимает, когда ему удобно.
+// На телефоне всегда одна версия целиком (страницы и код из кэша service worker). Новая версия скачивается
+// сама и не включается сама: бригадир видит «Есть обновление» и нажимает, когда ему удобно
+// (или она включится при следующем полном открытии «Формана»).
 import { useSyncExternalStore } from 'react';
 import { Platform } from 'react-native';
 
 const BASE = `${process.env.EXPO_BASE_URL ?? ''}/`; // '/fixpro-sklad-app/forman/' (app.json → baseUrl)
 const SW_URL = `${BASE}sw.js`;
 const CHECK_EVERY_MS = 30 * 60 * 1000;
+const RELOAD_DELAY_MS = 1200;
 
 export type UpdateState = 'none' | 'ready';
 
@@ -40,8 +43,13 @@ export function startServiceWorker(): void {
   let controlled = !!sw.controller;
   sw.addEventListener('controllerchange', () => {
     if (requested) { window.location.reload(); return; }
-    // первая установка — не обновление; смена версии из другой вкладки — эта вкладка на старом коде
-    if (controlled) setState('ready');
+    // Первая установка — не обновление. Смена версии из другой вкладки: в этой вкладке старый код, его файлов
+    // в новом кэше нет (переход на другую вкладку дал бы белый экран), и старый код не должен писать данные
+    // поверх новой версии — перезагружаемся. Через секунду: успеет сохраниться последняя правка (0,7 с).
+    if (controlled) {
+      setState('none');
+      setTimeout(() => window.location.reload(), RELOAD_DELAY_MS);
+    }
     controlled = true;
   });
 
