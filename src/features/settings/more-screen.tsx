@@ -1,11 +1,10 @@
-// Вкладка «Ещё»: код команды, язык, тестовый импорт из пилота v0.3, о приложении.
+// Вкладка «Ещё»: код команды, язык, о приложении. (Импорт пилота v0.3 скрыт: тупик для тестеров.)
 import Constants from 'expo-constants';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { SyncBadge } from '@/components/sync-badge';
 import { Body, Button, Card, Field, Muted, Notice, Screen } from '@/components/ui';
-import { ImportV03Card } from '@/features/work/import-v03-card';
 import { getLanguage, LANGUAGES, setLanguage, t, type I18nKey } from '@/lib/i18n';
 import { connectTeam, disconnectTeam, parseTeamCode, useSyncStatus } from '@/lib/sync';
 import { colors, font, radius, space, TAP_MIN } from '@/lib/theme';
@@ -15,7 +14,6 @@ export default function MoreScreen() {
     <Screen title={t('more.title')}>
       <TeamCard />
       <LanguageCard />
-      <ImportV03Card />
       <AboutCard />
     </Screen>
   );

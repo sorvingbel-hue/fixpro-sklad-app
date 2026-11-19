@@ -136,3 +136,58 @@ export async function storageInfo(): Promise<{ usedMB: number; quotaMB: number }
     return null;
   }
 }
+
+// ---------- Отправка отчёта с фото (Web Share) ----------
+// Двухшаговая схема: «Подготовить» читает фото из IndexedDB, «Отправить» вызывает navigator.share
+// сразу в нажатии (Safari требует «свежее» действие пользователя).
+export async function photoFiles(photos: JobPhoto[]): Promise<File[]> {
+  const out: File[] = [];
+  for (const [k, p] of photos.entries()) {
+    try {
+      const b = await tx<Blob>('readonly', s => s.get(`${p.id}:full`));
+      if (b) out.push(new File([b], `${p.kind === 'order' ? 'zakaz' : 'foto'}-${String(k + 1).padStart(2, '0')}.jpg`, { type: 'image/jpeg' }));
+    } catch { /* пропускаем фото, которого нет */ }
+  }
+  return out;
+}
+
+export function canShareFiles(files: File[]): boolean {
+  try { return typeof navigator !== 'undefined' && !!navigator.canShare && navigator.canShare({ files }); } catch { return false; }
+}
+
+export async function shareFiles(files: File[], title: string, text: string): Promise<'ok' | 'cancel' | 'fail'> {
+  try {
+    await navigator.share({ files, title, text });
+    return 'ok';
+  } catch (e) {
+    return e instanceof DOMException && e.name === 'AbortError' ? 'cancel' : 'fail';
+  }
+}
+
+export async function copyText(text: string): Promise<boolean> {
+  try { await navigator.clipboard.writeText(text); return true; } catch { return false; }
+}
+
+// ---------- Сохранность ----------
+// Просим браузер не стирать данные сам (Safari иначе может очистить сайт через 7 дней без захода)
+export async function requestPersist(): Promise<boolean | null> {
+  try {
+    if (!navigator.storage?.persist) return null;
+    if (await navigator.storage.persisted()) return true;
+    return await navigator.storage.persist();
+  } catch {
+    return null;
+  }
+}
+
+// Встроенный браузер мессенджера: у него своё хранилище, данные «потеряются» при переходе в Safari
+export function inAppBrowser(): string | null {
+  if (typeof navigator === 'undefined') return null;
+  const ua = navigator.userAgent || '';
+  if (/WhatsApp/i.test(ua)) return 'WhatsApp';
+  if (/Telegram/i.test(ua)) return 'Telegram';
+  if (/Instagram/i.test(ua)) return 'Instagram';
+  if (/FBAN|FBAV|FB_IAB/i.test(ua)) return 'Facebook';
+  if (/Line\//i.test(ua)) return 'LINE';
+  return null;
+}

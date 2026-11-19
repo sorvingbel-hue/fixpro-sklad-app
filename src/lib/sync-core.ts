@@ -63,6 +63,8 @@ const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v));
 
 // Разбор «кода команды»: ссылка …#s=<команда>&k=<код>, строка «s=…&k=…»
 // или два слова «<команда> <код>». Возвращает null, если не похоже на код.
+export const READ_ONLY_SPACES = new Set(['demo']);
+
 export function parseTeamCode(text: string): Team | null {
   const raw = String(text || '').trim();
   if (!raw) return null;
@@ -358,7 +360,8 @@ export function createSyncClient(opts: SyncOptions) {
     return run;
   }
   async function doPush(): Promise<number> {
-    if (!team) { await refreshPending(); return pending; }
+    // Общая демо-команда — только чтение: из «Формана» туда ничего не отправляем (правило ARCHITECTURE.md)
+    if (!team || READ_ONLY_SPACES.has(team.space)) { await refreshPending(); return pending; }
     const cols = await readJSON<string[]>(K_COLS, []);
     try {
       for (const col of cols) {

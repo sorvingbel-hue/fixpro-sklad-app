@@ -8,18 +8,21 @@ import { colors, font, radius, space } from '@/lib/theme';
 
 import { seedWork, summarize } from '../work/work-model';
 import { JobScreen } from './job-screen';
-import { jobProgress, makeJob, sortJobs, upsertJob, validateJob, workForJob, type Job } from './jobs-model';
+import { jobProgress, localTime, makeJob, sortJobs, upsertJob, validateJob, workForJob, type Job } from './jobs-model';
 import { deleteJobData, loadJobs, loadWork, saveJobs, saveWork } from './jobs-store';
+import { inAppBrowser, PHOTOS_SUPPORTED, requestPersist } from './photo-store';
 
-const day = (iso: string) => iso.slice(0, 10);
+const day = (iso: string) => localTime(iso).slice(0, 10);
 
-export function JobsSection() {
+export function JobsSection({ onTop }: { onTop?: () => void }) {
   const [jobs, setJobs] = useState<Job[] | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const [form, setForm] = useState({ title: '', orderNo: '' });
   const [tried, setTried] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [progress, setProgress] = useState<Record<string, ReturnType<typeof summarize>>>({});
+  const [persisted, setPersisted] = useState<boolean | null>(null);
+  const inApp = inAppBrowser();
   const ref = useRef<Job[]>([]);
 
   const refresh = useCallback(async () => {
@@ -41,17 +44,23 @@ export function JobsSection() {
     return saveJobs(next);
   }, []);
 
+  function openJob(id: string | null) {
+    setOpenId(id);
+    onTop?.();
+  }
+
   async function create(example = false) {
     setTried(true);
     setMsg(null);
     const input = example ? { title: 'Пример: замена печи (вымышленные данные)', orderNo: 'DEMO-01' } : form;
     if (!validateJob(input).ok) return;
     const j = { ...makeJob(input), ...(example ? { example: true } : {}) };
-    const ok = (await onJob(j)) && (await saveWork(workForJob(seedWork(), j.id)));
+    const ok = (await onJob(j)) && (await saveWork(workForJob(seedWork(), j.id, { example })));
     if (!ok) { setMsg({ ok: false, text: 'Не удалось сохранить на этом устройстве. Возможно, браузер в приватном режиме — откройте обычную вкладку.' }); return; }
     setForm({ title: '', orderNo: '' });
     setTried(false);
-    setOpenId(j.id);
+    if (!example) void requestPersist().then(setPersisted); // попросить браузер не стирать данные сам
+    openJob(j.id);
   }
 
   async function onDelete(j: Job) {
@@ -60,7 +69,7 @@ export function JobsSection() {
     ref.current = next;
     setJobs(next);
     await saveJobs(next);
-    setOpenId(null);
+    openJob(null);
     setMsg({ ok: true, text: `Объект «${j.title}» удалён.` });
   }
 
@@ -68,7 +77,7 @@ export function JobsSection() {
 
   const open = openId ? jobs.find(j => j.id === openId) : null;
   if (open) {
-    return <JobScreen job={open} onJob={onJob} onBack={() => { setOpenId(null); void refresh(); }} onDelete={onDelete} />;
+    return <JobScreen job={open} onJob={onJob} onBack={() => { openJob(null); void refresh(); }} onDelete={onDelete} />;
   }
 
   const v = validateJob(form);
@@ -82,18 +91,18 @@ export function JobsSection() {
             const p = jobProgress(j, progress[j.id] ?? null);
             return (
               <Card key={j.id}>
-                <Text style={s.title}>{j.title}</Text>
+                <Text style={s.title}>{j.example ? `ДЕМО · ${j.title}` : j.title}</Text>
                 <Muted>{`${j.orderNo ? `Заказ ${j.orderNo} · ` : ''}начат ${day(j.createdAt)}`}</Muted>
                 <Text style={s.steps}>{p.steps.map(x => `${x.done ? '✓' : '○'} ${x.label}`).join('   ')}</Text>
                 <Muted>{`Фото ${p.photos} · скрин заказа ${p.orders} · сверка ${p.itemsOk}/${p.items} · этапы ${p.checksDone}/${p.checksTotal}`}</Muted>
-                <Button title="Продолжить" onPress={() => setOpenId(j.id)} testID={`job-open-${j.id}`} />
+                <Button title="Продолжить" onPress={() => openJob(j.id)} testID={`job-open-${j.id}`} />
               </Card>
             );
           })}
         </>
       ) : (
-        <Card title="Начать смену">
-          <Text style={s.lead}>Как это работает:</Text>
+        <Card title="Форман — помощник бригадира HVAC">
+          <Text style={s.lead}>Работа на сегодня: заказ, трак, фото, этапы и отчёт офису — в одном месте. Как это работает:</Text>
           <Text style={s.list}>{'1. Создайте объект — хватит названия.\n2. Добавьте фото и скрин заказа.\n3. Сверьте заказ и трак, пройдите этапы.\n4. Откройте итог и скачайте отчёт.'}</Text>
         </Card>
       )}
@@ -101,15 +110,26 @@ export function JobsSection() {
       <Card title={jobs.length ? 'Новый объект' : 'Новый объект — шаг 1'}>
         <Field label="Как вы называете объект *" value={form.title} onChangeText={t => setForm(f => ({ ...f, title: t }))} placeholder="Напр.: замена печи, Клермонт" testID="new-title" />
         {tried && v.errors.title ? <Notice kind="warn" text={v.errors.title} testID="new-title-error" /> : null}
-        <Field label="№ заказа (OrcaTech) — если есть" value={form.orderNo} onChangeText={t => setForm(f => ({ ...f, orderNo: t }))} testID="new-order" />
-        <Button title="Создать объект и начать" onPress={() => void create()} testID="new-create" />
+        <Field label="№ заказа (Orcatec) — если есть" value={form.orderNo} onChangeText={t => setForm(f => ({ ...f, orderNo: t }))} testID="new-order" />
+        <Button title="Начать по-настоящему" onPress={() => void create()} testID="new-create" />
         <Muted>Всё хранится только на этом телефоне, в этом браузере. В базу команды не уходит.</Muted>
       </Card>
 
       {!jobs.some(j => j.example) ? (
-        <Button title="Попробовать на примере (вымышленные данные)" kind="secondary" onPress={() => void create(true)} testID="new-example" />
+        <Button title="Посмотреть пример (ДЕМО)" kind="secondary" onPress={() => void create(true)} testID="new-example" />
       ) : null}
       {msg ? <Notice kind={msg.ok ? 'ok' : 'warn'} text={msg.text} /> : null}
+
+      {inApp ? (
+        <Notice kind="warn" text={`Ссылка открыта внутри ${inApp}. У него своё хранилище — данные могут пропасть. Откройте ссылку в Safari или Chrome (меню «…» → «Открыть в браузере»).`} testID="inapp-warn" />
+      ) : null}
+      {PHOTOS_SUPPORTED ? (
+        <Card title="Чтобы данные не пропали">
+          <Text style={s.list}>{'iPhone: кнопка «Поделиться» → «На экран „Домой“». Открывайте «Форман» с этой иконки.\nAndroid: меню ⋮ → «Добавить на главный экран».'}</Text>
+          <Muted>Без этого Safari может сам стереть данные сайта, если неделю не заходить. Данные хранятся только на этом телефоне.</Muted>
+          {persisted === true ? <Notice kind="ok" text="Браузер обещал не стирать данные сам." /> : null}
+        </Card>
+      ) : null}
     </View>
   );
 }

@@ -8,7 +8,7 @@ export type PhotoKind = 'photo' | 'order';
 
 export type JobPhoto = {
   id: string;
-  kind: PhotoKind;     // photo — фото с объекта; order — скрин заказа (OrcaTech и т.п.)
+  kind: PhotoKind;     // photo — фото с объекта; order — скрин заказа (Orcatec и т.п.)
   addedAt: string;     // ISO
   w: number;
   h: number;
@@ -63,10 +63,20 @@ export function makeJob(i: JobInput, now: Date = new Date(), id: string = newId(
   };
 }
 
-// Документ «Работы» для объекта: шаблон смены, но со своим id и пометкой источника
-export function workForJob(seed: WorkV03Doc, jobId: string): WorkV03Doc {
-  return { ...seed, job: jobId, source: 'forman', updated: null, importedAt: null };
+// Документ «Работы» для объекта. Настоящий объект — пустая сверка и без вопросов (свой список);
+// шаблон с вымышленными позициями — только у примера. Этапы — общий шаблон.
+export function workForJob(seed: WorkV03Doc, jobId: string, opts: { example?: boolean } = {}): WorkV03Doc {
+  const base = { ...seed, job: jobId, source: 'forman' as const, updated: null, importedAt: null };
+  return opts.example ? base : { ...base, items: [], questions: [] };
 }
+
+// Даты — по часам телефона (не UTC): вечером в Сан-Диего объект не должен получать завтрашнюю дату
+const p2 = (n: number) => String(n).padStart(2, '0');
+export const localDay = (d: Date): string => `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`;
+export const localTime = (iso: string): string => {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? iso : `${localDay(d)} ${p2(d.getHours())}:${p2(d.getMinutes())}`;
+};
 
 export const touch = (j: Job, now: Date = new Date()): Job => ({ ...j, updatedAt: now.toISOString() });
 
@@ -154,7 +164,6 @@ export function jobProgress(
 }
 
 const kb = (n: number) => (n >= 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)} МБ` : `${Math.max(1, Math.round(n / 1024))} КБ`);
-const hm = (iso: string) => iso.replace('T', ' ').slice(0, 16);
 
 // Шапка отчёта объекта; дальше к ней приклеивается отчёт «Работы» (buildWorkReport)
 export function buildJobHeader(j: Job, now: Date): string {
@@ -163,12 +172,19 @@ export function buildJobHeader(j: Job, now: Date): string {
   return [
     `ОБЪЕКТ: ${j.title}${j.example ? ' (пример, вымышленные данные)' : ''}`,
     `№ заказа: ${j.orderNo || 'не указан'}`,
-    `Создан: ${hm(j.createdAt)} UTC · отчёт: ${now.toLocaleString('ru-RU')}`,
+    `Создан: ${localTime(j.createdAt)} · отчёт: ${localTime(now.toISOString())}`,
     j.note ? `Заметка к объекту: ${j.note}` : '',
     '',
-    `Фото с объекта: ${p.length}${p.length ? ' — ' + p.map(x => `${x.name} (${hm(x.addedAt)}, ${kb(x.bytes)})`).join('; ') : ''}`,
-    `Скрины заказа: ${o.length}${o.length ? ' — ' + o.map(x => `${x.name} (${hm(x.addedAt)})`).join('; ') : ''}`,
-    'Фото хранятся на телефоне, где их добавили; в этот текст входят только их названия.',
+    `Фото с объекта: ${p.length}${p.length ? ' — ' + p.map(x => `${x.name} (${localTime(x.addedAt)}, ${kb(x.bytes)})`).join('; ') : ''}`,
+    `Скрины заказа: ${o.length}${o.length ? ' — ' + o.map(x => `${x.name} (${localTime(x.addedAt)})`).join('; ') : ''}`,
+    'Сами фото — в сообщении вместе с этим отчётом (кнопка «Отправить отчёт с фото») или в телефоне, где их добавили.',
     '',
   ].filter((line, k, arr) => !(line === '' && arr[k - 1] === '')).join('\n');
+}
+
+// Имя файла отчёта — только латиница и цифры: с кириллицей Chromium сохранял файл как «download»
+export function reportFileName(j: Job, now: Date): string {
+  const order = j.orderNo.replace(/[^A-Za-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30);
+  const t = `${localDay(now)}-${p2(now.getHours())}${p2(now.getMinutes())}`;
+  return `forman-otchet${order ? '-' + order : ''}-${t}.txt`;
 }

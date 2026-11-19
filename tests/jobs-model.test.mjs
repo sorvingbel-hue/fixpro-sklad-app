@@ -3,10 +3,10 @@
 import assert from 'node:assert/strict';
 
 import {
-  addPhotos, buildJobHeader, jobProgress, makeJob, newId, normalizeJobs, patchJob, PHOTOS_MAX, removePhoto, sortJobs,
-  upsertJob, validateJob, workForJob,
+  addPhotos, buildJobHeader, jobProgress, localDay, localTime, makeJob, newId, normalizeJobs, patchJob, PHOTOS_MAX, removePhoto,
+  reportFileName, sortJobs, upsertJob, validateJob, workForJob,
 } from '../src/features/jobs/jobs-model.ts';
-import { addItem, removeItem, seedWork, summarize } from '../src/features/work/work-model.ts';
+import { addItem, addQuestion, buildWorkReport, removeItem, removeQuestion, seedWork, summarize } from '../src/features/work/work-model.ts';
 
 const t0 = new Date('2026-11-19T13:00:00Z');
 
@@ -73,5 +73,27 @@ assert.ok(!head.includes('\n\n\n'));
 // 8. id уникальны
 const ids = new Set(Array.from({ length: 500 }, () => newId('ph')));
 assert.equal(ids.size, 500);
+
+// 9. Настоящий объект — пустая сверка и без вопросов; пример — шаблон
+const real = workForJob(seedWork(), 'job-r');
+assert.equal(real.items.length, 0); assert.equal(real.questions.length, 0);
+assert.ok(real.phases.length > 0);
+const ex = workForJob(seedWork(), 'job-e', { example: true });
+assert.ok(ex.items.length > 0 && ex.questions.length > 0);
+
+// 10. Свои вопросы
+const q1 = addQuestion(real, '  Где щиток?  ', 'q-1');
+assert.equal(q1.questions[0].text, 'Где щиток?');
+assert.equal(addQuestion(real, '   ', 'q-x'), real);
+assert.equal(removeQuestion(q1, 'q-1').questions.length, 0);
+
+// 11. Даты по часам телефона, имя файла — латиницей, в отчёте название, а не внутренний id
+const evening = new Date(2026, 10, 19, 17, 30); // 19.11 17:30 по местному времени
+assert.equal(localDay(evening), '2026-11-19');
+assert.equal(localTime(evening.toISOString()), '2026-11-19 17:30');
+const kir = makeJob({ title: 'Печь, Клермонт' }, evening, 'job-k');
+assert.match(reportFileName(kir, evening), /^forman-otchet-2026-11-19-1730\.txt$/);
+assert.match(reportFileName({ ...kir, orderNo: 'OT 55/7' }, evening), /^forman-otchet-OT-55-7-2026-11-19-1730\.txt$/);
+assert.match(buildWorkReport(real, evening, 'Печь, Клермонт').split('\n')[0], /^Личная сверка Печь, Клермонт/);
 
 console.log('jobs-model: все проверки пройдены');

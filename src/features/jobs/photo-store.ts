@@ -22,3 +22,11 @@ export async function deletePhotos(_ids: string[]): Promise<void> {}
 export async function storageInfo(): Promise<{ usedMB: number; quotaMB: number } | null> {
   return null;
 }
+
+// Отправка отчёта с фото и сохранность — только в веб-версии
+export async function photoFiles(_photos: JobPhoto[]): Promise<File[]> { return []; }
+export function canShareFiles(_files: File[]): boolean { return false; }
+export async function shareFiles(_files: File[], _title: string, _text: string): Promise<'ok' | 'cancel' | 'fail'> { return 'fail'; }
+export async function copyText(_text: string): Promise<boolean> { return false; }
+export async function requestPersist(): Promise<boolean | null> { return null; }
+export function inAppBrowser(): string | null { return null; }

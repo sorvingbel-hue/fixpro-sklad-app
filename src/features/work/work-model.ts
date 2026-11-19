@@ -110,9 +110,9 @@ const show = (v: unknown) => (v === null || v === '' || v === undefined ? '?' : 
 const teamState = (t: V03Team) => (t.status === 'done' ? 'Подтверждено пользователем' : t.status === 'blocked' ? 'СТОП' : 'В работе');
 
 // Текст отчёта — тот же порядок разделов, что кнопка «Отчёт» в пилоте
-export function buildWorkReport(d: WorkV03Doc, now: Date): string {
+export function buildWorkReport(d: WorkV03Doc, now: Date, label?: string): string {
   return [
-    `Личная сверка ${d.job} · ${now.toLocaleString('ru-RU')}`,
+    `Личная сверка ${label ?? d.job} · ${now.toLocaleString('ru-RU')}`,
     'Отметки пользователя, не независимый допуск к запуску.',
     '',
     ...d.items.map(i =>
@@ -170,3 +170,14 @@ export function addItem(d: WorkV03Doc, name: string, required: number | null, un
 }
 
 export const removeItem = (d: WorkV03Doc, id: string): WorkV03Doc => ({ ...d, items: d.items.filter(i => i.id !== id) });
+
+// Свои вопросы до работы (объекты «Формана»)
+export const QUESTIONS_MAX = 30;
+
+export function addQuestion(d: WorkV03Doc, text: string, id: string): WorkV03Doc {
+  const t = text.trim();
+  if (!t || d.questions.length >= QUESTIONS_MAX) return d;
+  return { ...d, questions: [...d.questions, { id, text: t.slice(0, 200), source: 'бригадир', answer: '', resolved: false }] };
+}
+
+export const removeQuestion = (d: WorkV03Doc, id: string): WorkV03Doc => ({ ...d, questions: d.questions.filter(q => q.id !== id) });

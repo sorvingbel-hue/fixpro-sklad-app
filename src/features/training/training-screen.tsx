@@ -16,7 +16,6 @@ import { PracticeSection } from './practice-section';
 import { useTrainingProgress } from './progress-store';
 import { ReferenceSection } from './reference-section';
 import { exportText } from './share';
-import { ShiftNote } from './shift-note';
 import { JobsSection } from '../jobs/jobs-section';
 import { useRevealScroll } from './use-reveal';
 
@@ -38,6 +37,14 @@ export default function TrainingScreen() {
     const now = new Date();
     const ok = await exportText(buildReport(progress, c, now), fill(c.report.fileName, { date: fileDate(now) }), c.report.shareTitle);
     setReportMsg(ok ? (web ? { ok: true, text: c.ui.reportDone } : null) : { ok: false, text: c.ui.reportFail });
+  }
+
+  // Открыли объект или вернулись к списку — к началу экрана (иначе остаётся прокрутка длинного списка)
+  function toTop() {
+    const go = () => scroll.current?.scrollTo({ y: 0, animated: false });
+    go();
+    setTimeout(go, 120);
+    setTimeout(go, 450);
   }
 
   function onSeg(k: Seg) {
@@ -77,7 +84,7 @@ export default function TrainingScreen() {
                 />
               </View>
 
-              {seg === 'work' ? <JobsSection /> : null}
+              {seg === 'work' ? <JobsSection onTop={toTop} /> : null}
               {!loaded && seg !== 'work' ? <Small>{c.ui.loading}</Small> : null}
               {loaded && seg === 'steps' ? (
                 <LessonSection
@@ -95,7 +102,6 @@ export default function TrainingScreen() {
               {loaded && seg === 'practice' ? <PracticeSection c={c} progress={progress} save={save} reveal={reveal} /> : null}
               {seg === 'ref' ? <ReferenceSection c={c} onReport={onReport} reportLabel={reportLabel} reportMsg={reportMsg} /> : null}
 
-              <ShiftNote />
               <SyncBadge />
             </View>
           </View>

@@ -11,17 +11,19 @@ import { Checkbox, Collapsible } from '../training/parts';
 import { exportText } from '../training/share';
 import type { WorkV03Doc } from '../work/import-v03';
 import {
-  addItem, addTeam, buildWorkReport, ITEMS_MAX, removeItem, removeTeam, setCheck, setItem, setQuestion, setTeam,
-  summarize, TEAM_MAX, verdict,
+  addItem, addQuestion, addTeam, buildWorkReport, ITEMS_MAX, QUESTIONS_MAX, removeItem, removeQuestion, removeTeam, setCheck,
+  setItem, setQuestion, setTeam, summarize, TEAM_MAX, verdict,
 } from '../work/work-model';
 import { ItemCard, TeamCard } from '../work/work-section';
 import {
-  addPhotos, buildJobHeader, jobProgress, newId, patchJob, PHOTOS_MAX, removePhoto, validateJob,
+  addPhotos, buildJobHeader, jobProgress, newId, patchJob, PHOTOS_MAX, removePhoto, reportFileName, validateJob,
   type Job, type JobPhoto, type PhotoKind,
 } from './jobs-model';
 import { loadWork, saveWork } from './jobs-store';
 import { PhotoGrid } from './photo-grid';
-import { deletePhotos, PHOTO_WHERE, PHOTOS_SUPPORTED, pickPhotos, type PickSource } from './photo-store';
+import {
+  canShareFiles, copyText, deletePhotos, PHOTO_WHERE, photoFiles, PHOTOS_SUPPORTED, pickPhotos, shareFiles, type PickSource,
+} from './photo-store';
 
 export function confirmAction(text: string, onYes: () => void) {
   if (Platform.OS === 'web') {
@@ -48,6 +50,8 @@ export function JobScreen({ job, onJob, onBack, onDelete }: Props) {
   const [busy, setBusy] = useState(false);
   const [reportMsg, setReportMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [newItem, setNewItem] = useState({ name: '', qty: '', unit: 'шт.' });
+  const [newQ, setNewQ] = useState('');
+  const [shareReady, setShareReady] = useState<{ files: File[]; text: string } | null>(null);
   const latest = useRef<WorkV03Doc | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -98,9 +102,10 @@ export function JobScreen({ job, onJob, onBack, onDelete }: Props) {
       if (!r.ok) { setPhotoMsg({ ok: false, text: r.reason }); return; }
       if (!r.photos.length) return; // выбор отменён
       const ok = await saveJob(addPhotos(job, r.photos));
-      const what = kind === 'order' ? 'Скрин заказа' : r.photos.length > 1 ? `Фото (${r.photos.length})` : 'Фото';
+      const what = kind === 'order' ? 'Скрин заказа добавлен' : r.photos.length > 1 ? `Фото добавлены (${r.photos.length})` : 'Фото добавлено';
+      setShareReady(null);
       setPhotoMsg(ok
-        ? { ok: true, text: `${what} добавлено и сохранено на этом устройстве${r.skipped ? `; не прочитано файлов: ${r.skipped}` : ''}.` }
+        ? { ok: true, text: `${what} и сохранено на этом устройстве${r.skipped ? `; не прочитано файлов: ${r.skipped}` : ''}.` }
         : { ok: false, text: 'Фото сохранено, но список объекта не записался — попробуйте ещё раз.' });
     }).finally(() => setBusy(false));
   }
@@ -108,19 +113,52 @@ export function JobScreen({ job, onJob, onBack, onDelete }: Props) {
   function onDeletePhoto(p: JobPhoto) {
     confirmAction(`Удалить ${p.kind === 'order' ? 'скрин заказа' : 'это фото'}? Вернуть будет нельзя.`, async () => {
       await deletePhotos([p.id]);
+      setShareReady(null);
       const ok = await saveJob(removePhoto(job, p.id));
       setPhotoMsg(ok ? { ok: true, text: 'Фото удалено.' } : { ok: false, text: 'Не удалось сохранить изменение.' });
     });
   }
 
-  async function onReport() {
+  function reportText(now: Date): string | null {
     const d = latest.current;
-    if (!d) return;
+    return d ? buildJobHeader(job, now) + '\n' + buildWorkReport(d, now, job.title) : null;
+  }
+
+  async function onReport() {
     const now = new Date();
-    const text = buildJobHeader(job, now) + '\n' + buildWorkReport(d, now);
-    const safe = (job.orderNo || job.title).replace(/[^\p{L}\p{N}_-]+/gu, '-').slice(0, 40) || 'obekt';
-    const ok = await exportText(text, `forman-${safe}-${now.toISOString().slice(0, 10)}.txt`, `Отчёт: ${job.title}`);
+    const text = reportText(now);
+    if (!text) return;
+    const ok = await exportText(text, reportFileName(job, now), `Отчёт: ${job.title}`);
     setReportMsg(ok ? (Platform.OS === 'web' ? { ok: true, text: 'Отчёт скачан файлом .txt' } : null) : { ok: false, text: 'Не удалось сформировать отчёт' });
+  }
+
+  // Шаг 1: собрать файлы (текст + фото). Шаг 2 — отдельным нажатием «Отправить».
+  async function onPrepareShare() {
+    const now = new Date();
+    const text = reportText(now);
+    if (!text) return;
+    const txt = new File([text], reportFileName(job, now), { type: 'text/plain' });
+    const files = [txt, ...(await photoFiles(job.photos))];
+    if (!canShareFiles(files)) {
+      setShareReady(null);
+      setReportMsg({ ok: false, text: 'Этот браузер не умеет отправлять файлы. Скачайте отчёт (.txt) и отправьте фото из галереи, или скопируйте текст.' });
+      return;
+    }
+    setShareReady({ files, text });
+    setReportMsg({ ok: true, text: `Готово к отправке: отчёт и ${files.length - 1} фото. Нажмите «Отправить».` });
+  }
+
+  async function onShare() {
+    if (!shareReady) return;
+    const r = await shareFiles(shareReady.files, `Отчёт: ${job.title}`, shareReady.text.split('\n')[0]);
+    if (r === 'ok') { setReportMsg({ ok: true, text: 'Отчёт с фото отправлен.' }); setShareReady(null); }
+    else if (r === 'fail') setReportMsg({ ok: false, text: 'Отправить не получилось. Скачайте отчёт (.txt) или скопируйте текст.' });
+  }
+
+  async function onCopy() {
+    const text = reportText(new Date());
+    const ok = !!text && (await copyText(text));
+    setReportMsg(ok ? { ok: true, text: 'Текст отчёта скопирован — вставьте в WhatsApp или письмо.' } : { ok: false, text: 'Не удалось скопировать.' });
   }
 
   if (!work) return <Muted>Открываю объект…</Muted>;
@@ -140,7 +178,7 @@ export function JobScreen({ job, onJob, onBack, onDelete }: Props) {
 
       <Card title={job.title || 'Объект без названия'}>
         <Text style={s.steps}>{prog.steps.map(x => `${x.done ? '✓' : '○'} ${x.label}`).join('   ')}</Text>
-        {job.example ? <Muted>Пример: данные вымышленные. Можно менять и удалять как угодно.</Muted> : null}
+        {job.example ? <Notice kind="info" text="ДЕМО · пример с вымышленными данными. Можно менять и удалять как угодно." testID="job-demo" /> : null}
         <Notice
           kind={saveFail ? 'warn' : 'ok'}
           text={saveFail ? 'Не удалось сохранить — записи остаются на экране, попробуйте ещё раз' : savedAt ? `Сохранено на этом устройстве · ${hms(savedAt)}` : 'Всё, что вы вводите, сохраняется само на этом устройстве'}
@@ -153,8 +191,7 @@ export function JobScreen({ job, onJob, onBack, onDelete }: Props) {
       <Card>
         <Field label="Как вы называете объект *" value={job.title} onChangeText={t => void saveJob(patchJob(job, { title: t }))} placeholder="Напр.: замена печи, Клермонт" testID="job-title" />
         {v.errors.title ? <Notice kind="warn" text={v.errors.title} /> : null}
-        <Field label="№ заказа (OrcaTech или другой) — если есть" value={job.orderNo} onChangeText={t => void saveJob(patchJob(job, { orderNo: t }))} testID="job-order" />
-        <Field label="Заметка к объекту — не обязательно" value={job.note} multiline onChangeText={t => void saveJob(patchJob(job, { note: t }))} testID="job-note" />
+        <Field label="№ заказа (Orcatec или другой) — если есть" value={job.orderNo} onChangeText={t => void saveJob(patchJob(job, { orderNo: t }))} testID="job-order" />
         <Muted>* — обязательно. Остальное можно заполнить позже. Точный адрес клиента в демо лучше не писать.</Muted>
       </Card>
 
@@ -164,7 +201,7 @@ export function JobScreen({ job, onJob, onBack, onDelete }: Props) {
           <>
             <Button title="📷  Сделать фото" onPress={() => onPick('camera', 'photo')} disabled={busy} testID="pick-camera" />
             <Button title="🖼  Фото из галереи" kind="secondary" onPress={() => onPick('gallery', 'photo')} disabled={busy} testID="pick-gallery" />
-            <Button title="🧾  Скрин заказа (OrcaTech)" kind="secondary" onPress={() => onPick('gallery', 'order')} disabled={busy} testID="pick-order" />
+            <Button title="🧾  Скрин заказа (Orcatec)" kind="secondary" onPress={() => onPick('gallery', 'order')} disabled={busy} testID="pick-order" />
             {busy ? <Notice kind="info" text="Жду выбор и сжимаю фото…" /> : null}
             <Muted>{PHOTO_WHERE}</Muted>
           </>
@@ -173,11 +210,12 @@ export function JobScreen({ job, onJob, onBack, onDelete }: Props) {
         <Text style={s.sub}>Фото с объекта</Text>
         <PhotoGrid photos={photos} onDelete={onDeletePhoto} empty="Пока нет фото. «До», «после», шильдик, щиток — что нужно офису." />
         <Text style={s.sub}>Скрин заказа</Text>
-        <PhotoGrid photos={orders} onDelete={onDeletePhoto} empty="Пока нет скрина заказа. Сделайте скриншот заказа в OrcaTech и добавьте его сюда." />
+        <PhotoGrid photos={orders} onDelete={onDeletePhoto} empty="Пока нет скрина заказа. Сделайте скриншот заказа в Orcatec и добавьте его сюда." />
       </Card>
 
       <Text style={s.h}>{`3. Сверка заказа и трака · ${sum.ok} ок, ${sum.bad} проблем из ${sum.items}`}</Text>
-      <Muted>Для каждой позиции: сколько заказано, сколько в траке, есть / нет. Шаблонные позиции замените своими.</Muted>
+      <Muted>Для каждой позиции: сколько нужно по заказу, сколько в траке, есть / нет.</Muted>
+      {work.items.length === 0 ? <Notice kind="info" text="Список пуст. Добавьте ниже, что должно быть в траке по заказу: оборудование и материалы." /> : null}
       {work.items.map(i => (
         <View key={i.id} style={s.itemWrap}>
           <ItemCard item={i} onChange={patch => update(d => setItem(d, i.id, patch))} />
@@ -209,8 +247,19 @@ export function JobScreen({ job, onJob, onBack, onDelete }: Props) {
           <Text style={s.title}>{q.text}</Text>
           <Field label="Ответ и откуда он получен" value={q.answer} multiline onChangeText={x => update(d => setQuestion(d, q.id, { answer: x }))} />
           <Checkbox label="Уточнено мной; ответ записан" checked={q.resolved} onChange={x => update(d => setQuestion(d, q.id, { resolved: x && !!q.answer.trim() }))} testID={`q-${q.id}`} />
+          <Button title="Убрать вопрос" kind="secondary" onPress={() => confirmAction('Убрать этот вопрос?', () => update(d => removeQuestion(d, q.id)))} />
         </Card>
       ))}
+      <Card title="Добавить вопрос">
+        <Field label="Что нужно уточнить до работы (у офиса, продавца, клиента)" value={newQ} multiline onChangeText={setNewQ} testID="q-new" />
+        <Button
+          title={work.questions.length >= QUESTIONS_MAX ? `Не больше ${QUESTIONS_MAX} вопросов` : 'Добавить вопрос'}
+          kind="secondary"
+          disabled={!newQ.trim() || work.questions.length >= QUESTIONS_MAX}
+          onPress={() => { update(d => addQuestion(d, newQ, newId('q'))); setNewQ(''); }}
+          testID="q-add"
+        />
+      </Card>
 
       <Text style={s.h}>{`5. Этапы · ${sum.checksDone}/${sum.checksTotal}`}</Text>
       {work.phases.map(p => (
@@ -228,7 +277,7 @@ export function JobScreen({ job, onJob, onBack, onDelete }: Props) {
         <Button title={work.team.length >= TEAM_MAX ? `Не больше ${TEAM_MAX}` : 'Добавить назначение'} kind="secondary" disabled={work.team.length >= TEAM_MAX} onPress={() => update(addTeam)} />
       </Collapsible>
 
-      <Field label="Заметки смены" value={work.notes} multiline onChangeText={x => update(d => ({ ...d, notes: x }))} testID="job-notes" />
+      <Field label="Заметки по объекту" value={work.notes} multiline onChangeText={x => update(d => ({ ...d, notes: x }))} testID="job-notes" />
 
       <Text style={s.h}>6. Итог</Text>
       <Card>
@@ -241,8 +290,16 @@ export function JobScreen({ job, onJob, onBack, onDelete }: Props) {
         {openChecks.length ? <Notice kind="info" text={`Не отмечено этапов: ${openChecks.length}`} /> : (
           <Notice kind="ok" text="Все этапы отмечены." />
         )}
-        <Button title={Platform.OS === 'web' ? 'Скачать отчёт объекта (.txt)' : 'Отправить отчёт объекта'} onPress={onReport} testID="job-report" />
-        <Muted>В отчёт входят поля, сверка, вопросы, этапы и названия фото. Сами фото остаются на телефоне.</Muted>
+        {Platform.OS === 'web' ? (
+          shareReady ? (
+            <Button title={`📤  Отправить отчёт и ${shareReady.files.length - 1} фото`} onPress={() => void onShare()} testID="job-share" />
+          ) : (
+            <Button title="📤  Подготовить отчёт с фото" onPress={() => void onPrepareShare()} testID="job-share-prepare" />
+          )
+        ) : null}
+        <Button title={Platform.OS === 'web' ? 'Скачать отчёт (.txt)' : 'Отправить отчёт'} kind="secondary" onPress={onReport} testID="job-report" />
+        {Platform.OS === 'web' ? <Button title="Скопировать текст отчёта" kind="secondary" onPress={() => void onCopy()} testID="job-copy" /> : null}
+        <Muted>«Отправить» открывает меню телефона: WhatsApp, почта, сообщения. В отчёт входят поля, сверка, вопросы, этапы; фото — отдельными файлами.</Muted>
         {reportMsg ? <Notice kind={reportMsg.ok ? 'ok' : 'warn'} text={reportMsg.text} /> : null}
       </Card>
 

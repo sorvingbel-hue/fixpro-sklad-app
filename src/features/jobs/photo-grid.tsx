@@ -5,7 +5,7 @@ import { Image, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Button, Muted } from '@/components/ui';
 import { colors, font, radius, space } from '@/lib/theme';
 
-import type { JobPhoto } from './jobs-model';
+import { localTime, type JobPhoto } from './jobs-model';
 import { photoUrl } from './photo-store';
 
 function useUrl(id: string, size: 'thumb' | 'full') {
@@ -41,7 +41,7 @@ function Viewer({ p, onClose, onDelete }: { p: JobPhoto; onClose: () => void; on
             <Text style={s.viewerText}>{missing ? 'Этого фото нет в этом браузере.' : 'Загружаю…'}</Text>
           )}
         </View>
-        <Text style={s.viewerText}>{`${p.kind === 'order' ? 'Скрин заказа' : 'Фото'} · ${p.name} · ${p.addedAt.replace('T', ' ').slice(0, 16)} UTC`}</Text>
+        <Text style={s.viewerText}>{`${p.kind === 'order' ? 'Скрин заказа' : 'Фото'} · ${p.name} · ${localTime(p.addedAt)}`}</Text>
         <View style={s.viewerBtns}>
           <Button title="Закрыть" onPress={onClose} testID="viewer-close" />
           <Button title="Удалить это фото" kind="secondary" onPress={onDelete} testID="viewer-delete" />
