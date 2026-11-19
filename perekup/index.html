@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Перекуп</title>
+<meta name="description" content="Брать или не брать вещь для перепродажи на eBay, за сколько, и склад купленного. Данные только на телефоне.">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#1F5C4E">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="ru_RU">
+<meta property="og:title" content="Перекуп">
+<meta property="og:description" content="Брать или не брать вещь для перепродажи на eBay, и склад купленного. Данные только на телефоне.">
+<meta property="og:url" content="https://sorvingbel-hue.github.io/fixpro-sklad-app/perekup/">
+<meta property="og:image" content="https://sorvingbel-hue.github.io/fixpro-sklad-app/perekup/icon-512.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Перекуп">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="format-detection" content="telephone=no">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="icon" href="icon-192.png" sizes="192x192" type="image/png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="stylesheet" href="app.css">
+<script type="module" src="app.js"></script>
+</head>
+<body>
+<header class="top">
+  <div class="logo"><img src="icon.svg" alt="" width="36" height="36"><span>Перекуп</span></div>
+  <span class="net-badge" id="net-badge" hidden>без интернета</span>
+</header>
+
+<div class="banner" id="banner" hidden></div>
+
+<main id="app">
+  <!-- ЭКРАН 1: оценить вещь -->
+  <section class="screen" id="screen-eval" data-screen="eval" aria-labelledby="h-eval">
+    <h1 id="h-eval">Оценить вещь</h1>
+    <p class="hint">Цены смотрите в приложении eBay: поиск → фильтр <b>Sold</b> (проданные) или <b>Terapeak</b>. Числа вводите сами — программа никуда не ходит и ничего не скачивает.</p>
+
+    <form id="eval-form" autocomplete="off" novalidate>
+      <div class="card">
+        <label class="field">
+          <span class="lbl">Что за вещь <i>(по желанию)</i></span>
+          <input name="title" type="text" enterkeyhint="next" placeholder="Например: плата Carrier HK42FZ">
+        </label>
+        <label class="field">
+          <span class="lbl">Категория</span>
+          <select name="categoryId" id="eval-cat"></select>
+        </label>
+      </div>
+
+      <div class="card">
+        <h2>Цены из eBay</h2>
+        <label class="field">
+          <span class="lbl">Медиана проданных, $</span>
+          <input name="median" inputmode="decimal" enterkeyhint="next" placeholder="например 120">
+        </label>
+        <div class="row2">
+          <label class="field">
+            <span class="lbl">Продано за 90 дней</span>
+            <input name="sold90" inputmode="numeric" enterkeyhint="next" placeholder="шт.">
+          </label>
+          <label class="field">
+            <span class="lbl">Активных сейчас</span>
+            <input name="active" inputmode="numeric" enterkeyhint="next" placeholder="шт.">
+          </label>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Доставка</h2>
+        <div class="seg" role="radiogroup" aria-label="Доставка">
+          <label><input type="radio" name="shipMode" value="buyer"><span>Платит покупатель</span></label>
+          <label><input type="radio" name="shipMode" value="free"><span>Бесплатная (плачу&nbsp;я)</span></label>
+          <label><input type="radio" name="shipMode" value="pickup"><span>Самовывоз</span></label>
+          <label><input type="radio" name="shipMode" value="unknown"><span>Не знаю</span></label>
+        </div>
+        <label class="field" data-ship="buyer" hidden>
+          <span class="lbl">Покупатель платит за доставку, $</span>
+          <input name="shipCharged" inputmode="decimal" placeholder="например 15">
+        </label>
+        <label class="field" data-ship="buyer free" hidden>
+          <span class="lbl">Этикетка — сколько я плачу за отправку, $</span>
+          <input name="label" inputmode="decimal" placeholder="пусто = не знаю">
+        </label>
+        <button type="button" class="chip" data-ship="buyer" data-action="label-same" hidden>Этикетка = как с покупателя</button>
+        <p class="note warn" data-ship="unknown" hidden>Без доставки прибыль не посчитать — будет «недостаточно данных». Посмотрите доставку у похожих проданных.</p>
+      </div>
+
+      <div class="card">
+        <h2>Цена покупки</h2>
+        <label class="field">
+          <span class="lbl">Сколько просят (или сколько заплачу), $</span>
+          <input name="buyPrice" inputmode="decimal" placeholder="например 20">
+        </label>
+        <button type="button" class="chip" data-action="own-item" aria-pressed="false">Своя вещь, $0</button>
+      </div>
+
+      <div class="card">
+        <h2>Проверки</h2>
+        <label class="check"><input type="checkbox" name="stop"><span>Из стоп-листа: хладагент, ртутный термостат, катализатор, отзывной товар, частая подделка</span></label>
+        <label class="check"><input type="checkbox" name="prius"><span>Не влезет в Prius (крупное или тяжёлое)</span></label>
+      </div>
+
+      <details class="card more">
+        <summary>Ещё расходы <i>(по желанию)</i></summary>
+        <label class="field">
+          <span class="lbl">Упаковка, $</span>
+          <input name="packaging" inputmode="decimal" placeholder="пусто = $0">
+        </label>
+        <label class="field">
+          <span class="lbl">Мили за вещью (туда и обратно)</span>
+          <input name="miles" inputmode="decimal" placeholder="пусто = не ездил">
+        </label>
+        <p class="note">Ставка за милю и налог покупателя — в «Настройках».</p>
+      </details>
+
+      <label class="field card">
+        <span class="lbl">Заметка: почему беру или не беру <i>(по желанию)</i></span>
+        <input name="note" type="text" maxlength="500" placeholder="например: продавец не уступил">
+      </label>
+    </form>
+
+    <div id="eval-result" aria-live="polite"></div>
+
+    <div class="actions">
+      <button type="button" class="btn btn-main btn-big" data-action="save-eval">Беру / думаю — сохранить в склад</button>
+      <button type="button" class="btn btn-soft btn-big" data-action="pass-eval">Не беру — записать в журнал</button>
+      <p class="note">Решение записывается в журнал в обоих случаях — по нему программа потом сверяет прогноз с жизнью.</p>
+      <button type="button" class="btn btn-ghost" data-action="clear-eval">Очистить без записи</button>
+    </div>
+  </section>
+
+  <!-- ЭКРАН 2: склад -->
+  <section class="screen" id="screen-stock" data-screen="stock" hidden>
+    <div id="stock-root"></div>
+  </section>
+
+  <!-- ЭКРАН 3: настройки -->
+  <section class="screen" id="screen-settings" data-screen="settings" hidden>
+    <div id="settings-root"></div>
+  </section>
+</main>
+
+<button type="button" class="sticky-verdict" id="sticky-verdict" data-action="to-result" hidden></button>
+
+<nav class="tabs" aria-label="Разделы">
+  <a href="#eval" data-tab="eval"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h10l6 6v10H4z M14 4v6h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M8 14h8M8 17h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>Оценить</span></a>
+  <a href="#stock" data-tab="stock"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9l9-5 9 5v11H3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M8 20v-6h8v6" fill="none" stroke="currentColor" stroke-width="2"/></svg><span>Склад</span></a>
+  <a href="#settings" data-tab="settings"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>Настройки</span></a>
+</nav>
+
+<div class="sheet-wrap" id="sheet" hidden>
+  <div class="sheet-scrim" data-action="close-sheet"></div>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+    <div class="sheet-head"><h2 id="sheet-title"></h2><button type="button" class="x" data-action="close-sheet" aria-label="Закрыть">✕</button></div>
+    <div class="sheet-body" id="sheet-body"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+<noscript><p class="card">Для «Перекупа» нужен включённый JavaScript.</p></noscript>
+</body>
+</html>
