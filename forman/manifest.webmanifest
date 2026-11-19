@@ -1,0 +1,22 @@
+{
+ "name": "Форман — помощник бригадира HVAC",
+ "short_name": "Форман",
+ "lang": "ru",
+ "start_url": "/fixpro-sklad-app/forman/",
+ "scope": "/fixpro-sklad-app/forman/",
+ "display": "standalone",
+ "background_color": "#FFFFFF",
+ "theme_color": "#0A4A9E",
+ "icons": [
+  {
+   "src": "/fixpro-sklad-app/forman/icon-192.png",
+   "sizes": "192x192",
+   "type": "image/png"
+  },
+  {
+   "src": "/fixpro-sklad-app/forman/icon-512.png",
+   "sizes": "512x512",
+   "type": "image/png"
+  }
+ ]
+}
