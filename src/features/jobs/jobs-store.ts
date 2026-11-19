@@ -8,7 +8,8 @@ import { normalizeJobs, sortJobs, workForJob, type Job } from './jobs-model';
 import { deletePhotos } from './photo-store';
 
 const INDEX = 'fm.jobs.v1';
-const workKey = (id: string) => `fm.job.${id}.work`;
+export const JOBS_KEY = INDEX;
+export const workKey = (id: string) => `fm.job.${id}.work`;
 
 export async function loadJobs(): Promise<Job[]> {
   return sortJobs(normalizeJobs(await getJSON<unknown>(INDEX, [])));

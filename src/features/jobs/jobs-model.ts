@@ -22,8 +22,10 @@ export type Job = {
   orderNo: string;
   note: string;
   createdAt: string;
-  updatedAt: string;
+  updatedAt: string;   // любая правка объекта (поля или фото)
+  editedAt?: string;   // правка полей (название, № заказа, заметка) — для слияния копий с двух телефонов
   photos: JobPhoto[];
+  removedPhotos?: string[]; // id удалённых фото: копия со второго телефона не вернёт их обратно
   example?: boolean;   // пример с вымышленными данными
 };
 
@@ -31,6 +33,7 @@ export const TITLE_MIN = 2;
 export const TITLE_MAX = 80;
 export const ORDER_MAX = 40;
 export const PHOTOS_MAX = 60; // на один объект: держим хранилище браузера в разумных пределах
+export const REMOVED_MAX = 200; // сколько id удалённых фото помнить
 
 export type JobInput = { title: string; orderNo?: string; note?: string };
 export type JobErrors = { title?: string; orderNo?: string };
@@ -59,6 +62,7 @@ export function makeJob(i: JobInput, now: Date = new Date(), id: string = newId(
     note: (i.note ?? '').trim(),
     createdAt: t,
     updatedAt: t,
+    editedAt: t,
     photos: [],
   };
 }
@@ -81,8 +85,12 @@ export const localTime = (iso: string): string => {
 export const touch = (j: Job, now: Date = new Date()): Job => ({ ...j, updatedAt: now.toISOString() });
 
 export function patchJob(j: Job, p: Partial<Pick<Job, 'title' | 'orderNo' | 'note'>>, now?: Date): Job {
-  return touch({ ...j, ...p }, now);
+  const t = touch({ ...j, ...p }, now);
+  return { ...t, editedAt: t.updatedAt };
 }
+
+// Когда последний раз правили поля объекта (у старых записей поля editedAt нет — берём updatedAt)
+export const jobEditedAt = (j: Job): string => j.editedAt || j.updatedAt || j.createdAt;
 
 export function addPhotos(j: Job, photos: JobPhoto[], now?: Date): Job {
   const room = Math.max(0, PHOTOS_MAX - j.photos.length);
@@ -90,7 +98,8 @@ export function addPhotos(j: Job, photos: JobPhoto[], now?: Date): Job {
 }
 
 export function removePhoto(j: Job, photoId: string, now?: Date): Job {
-  return touch({ ...j, photos: j.photos.filter(p => p.id !== photoId) }, now);
+  const removed = [...(j.removedPhotos ?? []).filter(id => id !== photoId), photoId].slice(-REMOVED_MAX);
+  return touch({ ...j, photos: j.photos.filter(p => p.id !== photoId), removedPhotos: removed }, now);
 }
 
 // Объекты списка: свежие сверху
@@ -101,25 +110,30 @@ export function upsertJob(jobs: Job[], j: Job): Job[] {
   return i < 0 ? [j, ...jobs] : jobs.map(x => (x.id === j.id ? j : x));
 }
 
-// Нормализация того, что прочитали из хранилища: битые записи отбрасываем, а не роняем экран
+// Нормализация того, что прочитали из хранилища: битые записи отбрасываем, а не роняем экран.
+// Незнакомые поля сохраняются как есть: их могла записать более новая версия «Формана» (например, адрес),
+// и сохранение этим кодом не должно их стирать.
 export function normalizeJobs(raw: unknown): Job[] {
   if (!Array.isArray(raw)) return [];
   const out: Job[] = [];
   for (const x of raw) {
-    if (!x || typeof x !== 'object') continue;
-    const j = x as Partial<Job>;
+    if (!x || typeof x !== 'object' || Array.isArray(x)) continue;
+    const { example, editedAt, removedPhotos, ...j } = x as Partial<Job> & Record<string, unknown>;
     if (typeof j.id !== 'string' || typeof j.title !== 'string' || typeof j.createdAt !== 'string') continue;
     out.push({
+      ...j,
       id: j.id,
       title: j.title,
       orderNo: typeof j.orderNo === 'string' ? j.orderNo : '',
       note: typeof j.note === 'string' ? j.note : '',
       createdAt: j.createdAt,
       updatedAt: typeof j.updatedAt === 'string' ? j.updatedAt : j.createdAt,
+      ...(typeof editedAt === 'string' ? { editedAt } : {}),
       photos: Array.isArray(j.photos)
-        ? j.photos.filter(p => p && typeof p.id === 'string' && (p.kind === 'photo' || p.kind === 'order'))
+        ? j.photos.filter(p => p && typeof p === 'object' && typeof p.id === 'string' && (p.kind === 'photo' || p.kind === 'order'))
         : [],
-      ...(j.example ? { example: true } : {}),
+      ...(Array.isArray(removedPhotos) ? { removedPhotos: removedPhotos.filter(id => typeof id === 'string').slice(-REMOVED_MAX) } : {}),
+      ...(example ? { example: true } : {}),
     });
   }
   return out;

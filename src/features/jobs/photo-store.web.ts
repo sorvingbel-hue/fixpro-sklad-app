@@ -99,6 +99,64 @@ export async function pickPhotos(source: PickSource, kind: PhotoKind): Promise<P
   return { ok: true, photos, skipped };
 }
 
+// ---------- Копия файлом (М7) ----------
+function blobToDataUrl(b: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result));
+    r.onerror = () => reject(r.error);
+    r.readAsDataURL(b);
+  });
+}
+
+function dataUrlToBlob(u: string): Blob {
+  const comma = u.indexOf(',');
+  const mime = u.slice(5, u.indexOf(';')) || 'image/jpeg';
+  const bin = atob(u.slice(comma + 1));
+  const bytes = new Uint8Array(bin.length);
+  for (let k = 0; k < bin.length; k++) bytes[k] = bin.charCodeAt(k);
+  return new Blob([bytes], { type: mime });
+}
+
+// Полные фото как data:URL для файла копии; missing — фото, которых в этом браузере уже нет
+export async function photoDataUrls(
+  ids: string[],
+  onProgress?: (done: number, total: number) => void,
+): Promise<{ urls: Record<string, string>; missing: number }> {
+  const out: Record<string, string> = {};
+  let missing = 0;
+  if (!PHOTOS_SUPPORTED) return { urls: out, missing: ids.length };
+  for (const [k, id] of ids.entries()) {
+    onProgress?.(k, ids.length);
+    try {
+      const b = await tx<Blob>('readonly', s => s.get(`${id}:full`));
+      if (!b) { missing++; continue; }
+      out[id] = await blobToDataUrl(b.type.startsWith('image/') ? b : new Blob([b], { type: 'image/jpeg' }));
+    } catch {
+      missing++;
+    }
+  }
+  return { urls: out, missing };
+}
+
+// Фото из файла копии → IndexedDB: полное — как в файле, миниатюру пересчитываем (canvas).
+// Если у этого фото уже есть и полное, и миниатюра — ничего не пишем (повторная загрузка не дублирует).
+export async function restorePhoto(id: string, dataUrl: string): Promise<'written' | 'exists' | 'fail'> {
+  if (!PHOTOS_SUPPORTED) return 'fail';
+  try {
+    // ключи одного фото — `${id}:full` и `${id}:thumb`; между ними по алфавиту других ключей нет
+    const have = await tx<number>('readonly', s => s.count(IDBKeyRange.bound(`${id}:full`, `${id}:thumb`)));
+    if (have === 2) return 'exists';
+    const full = dataUrlToBlob(dataUrl);
+    const img = await loadImage(full); // заодно проверка, что это правда картинка
+    const thumb = await toJpeg(img, THUMB, 0.75);
+    await tx('readwrite', s => { s.put(full, `${id}:full`); s.put(thumb.blob, `${id}:thumb`); });
+    return 'written';
+  } catch {
+    return 'fail';
+  }
+}
+
 const urls = new Map<string, string>();
 
 export async function photoUrl(id: string, size: 'thumb' | 'full'): Promise<string | null> {

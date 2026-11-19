@@ -1,5 +1,6 @@
 // Раздел «Объекты» во вкладке «Смена»: «Начать смену / Продолжить».
 // Список объектов на этом устройстве → новый объект (минимум полей) или пример → экран объекта.
+// Под списком — «Копия и второй телефон» (копия файлом, напоминание «Сделайте копию»).
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
@@ -7,6 +8,8 @@ import { Button, Card, Field, Muted, Notice } from '@/components/ui';
 import { colors, font, radius, space } from '@/lib/theme';
 
 import { seedWork, summarize } from '../work/work-model';
+import { BackupCard, type BackupBusy, type BackupMsg } from './backup-card';
+import { JobGuard } from './job-guard';
 import { JobScreen } from './job-screen';
 import { jobProgress, localTime, makeJob, sortJobs, upsertJob, validateJob, workForJob, type Job } from './jobs-model';
 import { deleteJobData, loadJobs, loadWork, saveJobs, saveWork } from './jobs-store';
@@ -22,6 +25,9 @@ export function JobsSection({ onTop }: { onTop?: () => void }) {
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [progress, setProgress] = useState<Record<string, ReturnType<typeof summarize>>>({});
   const [persisted, setPersisted] = useState<boolean | null>(null);
+  const [backupMsg, setBackupMsg] = useState<BackupMsg>(null);
+  const [backupBusy, setBackupBusy] = useState<BackupBusy>(null);
+  const loading = backupBusy?.kind === 'load'; // пока загружается копия, объекты не открываем и не меняем
   const inApp = inAppBrowser();
   const ref = useRef<Job[]>([]);
 
@@ -30,11 +36,16 @@ export function JobsSection({ onTop }: { onTop?: () => void }) {
     ref.current = list;
     setJobs(list);
     const p: Record<string, ReturnType<typeof summarize>> = {};
-    for (const j of list) p[j.id] = summarize(await loadWork(j.id));
+    for (const j of list) {
+      try { p[j.id] = summarize(await loadWork(j.id)); } catch { /* испорченная «Работа» не ломает список */ }
+    }
     setProgress(p);
   }, []);
 
-  useEffect(() => { void refresh(); }, [refresh]);
+  useEffect(() => {
+    const t = setTimeout(() => void refresh(), 0);
+    return () => clearTimeout(t);
+  }, [refresh]);
 
   // Сохранить карточку объекта: сразу на экран, потом в хранилище устройства
   const onJob = useCallback(async (j: Job) => {
@@ -44,8 +55,15 @@ export function JobsSection({ onTop }: { onTop?: () => void }) {
     return saveJobs(next);
   }, []);
 
+  // Загрузили копию: перечитать список; если добавились объекты — к началу, чтобы их было видно
+  async function onRestored(added: number) {
+    await refresh();
+    if (added) onTop?.();
+  }
+
   function openJob(id: string | null) {
     setOpenId(id);
+    setBackupMsg(null);
     onTop?.();
   }
 
@@ -77,13 +95,21 @@ export function JobsSection({ onTop }: { onTop?: () => void }) {
 
   const open = openId ? jobs.find(j => j.id === openId) : null;
   if (open) {
-    return <JobScreen job={open} onJob={onJob} onBack={() => { openJob(null); void refresh(); }} onDelete={onDelete} />;
+    const back = () => { openJob(null); void refresh(); };
+    return (
+      <JobGuard key={open.id} title={open.title} onBack={back} onDelete={() => void onDelete(open)}>
+        <JobScreen job={open} onJob={onJob} onBack={back} onDelete={onDelete} />
+      </JobGuard>
+    );
   }
 
   const v = validateJob(form);
 
   return (
     <View style={s.wrap} testID="jobs-section">
+      {loading ? (
+        <Notice kind="info" text={`${backupBusy.text} Не закрывайте страницу. Объекты можно будет открыть, когда загрузка закончится.`} testID="backup-loading" />
+      ) : null}
       {jobs.length ? (
         <>
           <Text style={s.h}>Продолжить</Text>
@@ -95,10 +121,11 @@ export function JobsSection({ onTop }: { onTop?: () => void }) {
                 <Muted>{`${j.orderNo ? `Заказ ${j.orderNo} · ` : ''}начат ${day(j.createdAt)}`}</Muted>
                 <Text style={s.steps}>{p.steps.map(x => `${x.done ? '✓' : '○'} ${x.label}`).join('   ')}</Text>
                 <Muted>{`Фото ${p.photos} · скрин заказа ${p.orders} · сверка ${p.itemsOk}/${p.items} · этапы ${p.checksDone}/${p.checksTotal}`}</Muted>
-                <Button title="Продолжить" onPress={() => openJob(j.id)} testID={`job-open-${j.id}`} />
+                <Button title="Продолжить" onPress={() => openJob(j.id)} disabled={loading} testID={`job-open-${j.id}`} />
               </Card>
             );
           })}
+          <BackupCard jobs={jobs} onRestored={onRestored} msg={backupMsg} setMsg={setBackupMsg} busy={backupBusy} setBusy={setBackupBusy} />
         </>
       ) : (
         <Card title="Форман — помощник бригадира HVAC">
@@ -111,14 +138,15 @@ export function JobsSection({ onTop }: { onTop?: () => void }) {
         <Field label="Как вы называете объект *" value={form.title} onChangeText={t => setForm(f => ({ ...f, title: t }))} placeholder="Напр.: замена печи, Клермонт" testID="new-title" />
         {tried && v.errors.title ? <Notice kind="warn" text={v.errors.title} testID="new-title-error" /> : null}
         <Field label="№ заказа (Orcatec) — если есть" value={form.orderNo} onChangeText={t => setForm(f => ({ ...f, orderNo: t }))} testID="new-order" />
-        <Button title="Начать по-настоящему" onPress={() => void create()} testID="new-create" />
+        <Button title="Начать по-настоящему" onPress={() => void create()} disabled={loading} testID="new-create" />
         <Muted>Всё хранится только на этом телефоне, в этом браузере. В базу команды не уходит.</Muted>
       </Card>
 
       {!jobs.some(j => j.example) ? (
-        <Button title="Посмотреть пример (ДЕМО)" kind="secondary" onPress={() => void create(true)} testID="new-example" />
+        <Button title="Посмотреть пример (ДЕМО)" kind="secondary" onPress={() => void create(true)} disabled={loading} testID="new-example" />
       ) : null}
       {msg ? <Notice kind={msg.ok ? 'ok' : 'warn'} text={msg.text} /> : null}
+      {!jobs.length ? <BackupCard jobs={jobs} onRestored={onRestored} msg={backupMsg} setMsg={setBackupMsg} busy={backupBusy} setBusy={setBackupBusy} /> : null}
 
       {inApp ? (
         <Notice kind="warn" text={`Ссылка открыта внутри ${inApp}. У него своё хранилище — данные могут пропасть. Откройте ссылку в Safari или Chrome (меню «…» → «Открыть в браузере»).`} testID="inapp-warn" />
@@ -127,6 +155,7 @@ export function JobsSection({ onTop }: { onTop?: () => void }) {
         <Card title="Чтобы данные не пропали">
           <Text style={s.list}>{'iPhone: кнопка «Поделиться» → «На экран „Домой“». Открывайте «Форман» с этой иконки.\nAndroid: меню ⋮ → «Добавить на главный экран».'}</Text>
           <Muted>Без этого Safari может сам стереть данные сайта, если неделю не заходить. Данные хранятся только на этом телефоне.</Muted>
+          <Muted>У иконки на экране «Домой» может быть своё хранилище, отдельно от Safari. Если с иконки объектов не видно — в Safari нажмите «Сохранить копию», а с иконки — «Загрузить копию».</Muted>
           {persisted === true ? <Notice kind="ok" text="Браузер обещал не стирать данные сам." /> : null}
         </Card>
       ) : null}

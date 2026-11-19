@@ -54,20 +54,107 @@ export function seedWork(): WorkV03Doc {
   };
 }
 
+// Пределы одного документа «Работы» (= V03_LIMITS в import-v03.ts): битые и огромные данные не пускаем
+export const WORK_LIMITS = { items: 200, questions: 50, str: 20_000, notes: 200_000, checks: 200 } as const;
+
+const ITEM_STATUS: V03Item['status'][] = ['unknown', 'present', 'missing'];
+const TEAM_STATUS: V03Team['status'][] = ['open', 'blocked', 'done'];
+const str = (v: unknown, max: number = WORK_LIMITS.str): string => (typeof v === 'string' ? v.slice(0, max) : '');
+const scalar = (v: unknown, dflt: string | number | null): string | number | null =>
+  v === null ? null : typeof v === 'number' && Number.isFinite(v) ? v : typeof v === 'string' ? v.slice(0, WORK_LIMITS.str) : dflt;
+const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
+
+// Позиции, вопросы и бригада: элемент без id или не объект — отбрасываем, недостающие поля — пустые.
+// Иначе один null в items ронял экран объекта и итоги всего списка (прочитать .actual у null).
+function cleanItems(raw: unknown): V03Item[] {
+  const out: V03Item[] = [];
+  const seen = new Set<string>();
+  for (const x of Array.isArray(raw) ? raw : []) {
+    if (!isObj(x) || typeof x.id !== 'string' || !x.id || x.id.length > 100 || seen.has(x.id)) continue;
+    seen.add(x.id);
+    out.push({
+      id: x.id, name: str(x.name), required: scalar(x.required, null), unit: str(x.unit), source: str(x.source), hint: str(x.hint),
+      ordered: scalar(x.ordered, ''), actual: scalar(x.actual, ''),
+      status: ITEM_STATUS.includes(x.status as V03Item['status']) ? (x.status as V03Item['status']) : 'unknown',
+      location: str(x.location), note: str(x.note),
+    });
+    if (out.length >= WORK_LIMITS.items) break;
+  }
+  return out;
+}
+
+function cleanQuestions(raw: unknown): V03Question[] {
+  const out: V03Question[] = [];
+  const seen = new Set<string>();
+  for (const x of Array.isArray(raw) ? raw : []) {
+    if (!isObj(x) || typeof x.id !== 'string' || !x.id || x.id.length > 100 || seen.has(x.id)) continue;
+    seen.add(x.id);
+    const answer = str(x.answer);
+    out.push({ id: x.id, text: str(x.text), source: str(x.source), answer, resolved: x.resolved === true && !!answer.trim() });
+    if (out.length >= WORK_LIMITS.questions) break;
+  }
+  return out;
+}
+
+function cleanTeam(raw: unknown): V03Team[] {
+  return (Array.isArray(raw) ? raw : []).filter(isObj).slice(0, TEAM_MAX).map(x => ({
+    role: str(x.role), task: str(x.task), next: str(x.next),
+    status: TEAM_STATUS.includes(x.status as V03Team['status']) ? (x.status as V03Team['status']) : 'open',
+  }));
+}
+
+function cleanChecks(raw: unknown): Record<string, boolean> {
+  const checks: Record<string, boolean> = {};
+  if (!isObj(raw)) return checks;
+  for (const [k, v] of Object.entries(raw)) {
+    if (typeof v !== 'boolean' || k === '__proto__' || k.length > 100) continue;
+    checks[k] = v;
+    if (Object.keys(checks).length >= WORK_LIMITS.checks) break;
+  }
+  return checks;
+}
+
 // Документ из базы → рабочий вид. Чужое/битое не принимаем (вернётся null — экран возьмёт шаблон).
+// Незнакомые поля верхнего уровня сохраняются (их могла записать более новая версия «Формана»).
 export function normalizeWork(d: unknown): WorkV03Doc | null {
   const x = d as Partial<WorkV03Doc> | null;
   if (!x || typeof x !== 'object' || x.kind !== 'forman-work-v03' || x.schema !== 1) return null;
   if (!Array.isArray(x.items) || !Array.isArray(x.questions) || typeof x.notes !== 'string') return null;
-  const checks: Record<string, boolean> = {};
-  if (x.checks && typeof x.checks === 'object') for (const [k, v] of Object.entries(x.checks)) if (typeof v === 'boolean') checks[k] = v;
   return {
     ...seedWork(),
     ...x,
-    team: Array.isArray(x.team) ? x.team.slice(0, TEAM_MAX) : [],
+    items: cleanItems(x.items),
+    questions: cleanQuestions(x.questions),
+    team: cleanTeam(x.team),
     phases: seedWork().phases, // как в пилоте: этапы всегда из шаблона
-    checks,
+    checks: cleanChecks(x.checks),
+    notes: x.notes.slice(0, WORK_LIMITS.notes),
   } as WorkV03Doc;
+}
+
+// Строгая проверка «Работы» из файла копии (М7): только документ этого объекта, только известные поля,
+// дата правки — настоящая дата или null. Всё, что нельзя показать, отбрасывается здесь, а не на экране.
+export function sanitizeWork(raw: unknown, jobId: string): WorkV03Doc | null {
+  const d = normalizeWork(raw);
+  if (!d || d.job !== jobId) return null;
+  const x = raw as Record<string, unknown>;
+  const t = typeof x.updated === 'string' && x.updated.length <= 40 ? Date.parse(x.updated) : NaN;
+  const imported = typeof x.importedAt === 'string' && x.importedAt.length <= 40 ? x.importedAt : null;
+  return {
+    kind: 'forman-work-v03',
+    source: x.source === 'dot-pilot-0.3' ? 'dot-pilot-0.3' : 'forman',
+    schema: 1,
+    job: jobId,
+    updated: Number.isNaN(t) ? null : new Date(t).toISOString(),
+    importedAt: imported,
+    items: d.items,
+    questions: d.questions,
+    team: d.team,
+    phases: d.phases,
+    checks: d.checks,
+    notes: d.notes,
+    photosIncluded: false,
+  };
 }
 
 // Число из поля («», null, текст) — как quantity() в пилоте
