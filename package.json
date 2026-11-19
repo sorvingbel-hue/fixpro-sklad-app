@@ -44,7 +44,8 @@
     "test:sync": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON tests/sync.test.mjs",
     "test:import-v03": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON tests/import-v03.test.mjs",
     "typecheck": "tsc --noEmit",
-    "test:work": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON tests/work-model.test.mjs"
+    "test:work": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON tests/work-model.test.mjs",
+    "test:jobs": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON tests/jobs-model.test.mjs"
   },
   "private": true
 }

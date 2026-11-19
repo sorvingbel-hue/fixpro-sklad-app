@@ -1,0 +1,174 @@
+// Объекты смены: модель без React Native (её проверяет tests/jobs-model.test.mjs в Node).
+// Объект = то, что бригадир называет работой на сегодня: название, № заказа, фото, сверка, этапы.
+// Сверка/вопросы/этапы объекта — документ «Работы» (WorkV03Doc), он хранится отдельно (jobs-store).
+// Только типы: файл должен грузиться в Node без сборщика.
+import type { WorkV03Doc } from '../work/import-v03';
+
+export type PhotoKind = 'photo' | 'order';
+
+export type JobPhoto = {
+  id: string;
+  kind: PhotoKind;     // photo — фото с объекта; order — скрин заказа (OrcaTech и т.п.)
+  addedAt: string;     // ISO
+  w: number;
+  h: number;
+  bytes: number;
+  name: string;        // имя исходного файла (для отчёта)
+};
+
+export type Job = {
+  id: string;
+  title: string;
+  orderNo: string;
+  note: string;
+  createdAt: string;
+  updatedAt: string;
+  photos: JobPhoto[];
+  example?: boolean;   // пример с вымышленными данными
+};
+
+export const TITLE_MIN = 2;
+export const TITLE_MAX = 80;
+export const ORDER_MAX = 40;
+export const PHOTOS_MAX = 60; // на один объект: держим хранилище браузера в разумных пределах
+
+export type JobInput = { title: string; orderNo?: string; note?: string };
+export type JobErrors = { title?: string; orderNo?: string };
+
+export function validateJob(i: JobInput): { ok: boolean; errors: JobErrors } {
+  const errors: JobErrors = {};
+  const title = (i.title ?? '').trim();
+  if (title.length < TITLE_MIN) errors.title = 'Напишите, как вы называете объект (хотя бы 2 буквы)';
+  else if (title.length > TITLE_MAX) errors.title = `Не длиннее ${TITLE_MAX} знаков`;
+  if ((i.orderNo ?? '').trim().length > ORDER_MAX) errors.orderNo = `Не длиннее ${ORDER_MAX} знаков`;
+  return { ok: Object.keys(errors).length === 0, errors };
+}
+
+// Короткий уникальный id без внешних библиотек: время + случайная часть
+export function newId(prefix: string, now: Date = new Date(), rnd: () => number = Math.random): string {
+  const r = Math.floor(rnd() * 36 ** 4).toString(36).padStart(4, '0');
+  return `${prefix}-${now.getTime().toString(36)}${r}`;
+}
+
+export function makeJob(i: JobInput, now: Date = new Date(), id: string = newId('job', now)): Job {
+  const t = now.toISOString();
+  return {
+    id,
+    title: (i.title ?? '').trim().slice(0, TITLE_MAX),
+    orderNo: (i.orderNo ?? '').trim().slice(0, ORDER_MAX),
+    note: (i.note ?? '').trim(),
+    createdAt: t,
+    updatedAt: t,
+    photos: [],
+  };
+}
+
+// Документ «Работы» для объекта: шаблон смены, но со своим id и пометкой источника
+export function workForJob(seed: WorkV03Doc, jobId: string): WorkV03Doc {
+  return { ...seed, job: jobId, source: 'forman', updated: null, importedAt: null };
+}
+
+export const touch = (j: Job, now: Date = new Date()): Job => ({ ...j, updatedAt: now.toISOString() });
+
+export function patchJob(j: Job, p: Partial<Pick<Job, 'title' | 'orderNo' | 'note'>>, now?: Date): Job {
+  return touch({ ...j, ...p }, now);
+}
+
+export function addPhotos(j: Job, photos: JobPhoto[], now?: Date): Job {
+  const room = Math.max(0, PHOTOS_MAX - j.photos.length);
+  return touch({ ...j, photos: [...j.photos, ...photos.slice(0, room)] }, now);
+}
+
+export function removePhoto(j: Job, photoId: string, now?: Date): Job {
+  return touch({ ...j, photos: j.photos.filter(p => p.id !== photoId) }, now);
+}
+
+// Объекты списка: свежие сверху
+export const sortJobs = (jobs: Job[]): Job[] => [...jobs].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+
+export function upsertJob(jobs: Job[], j: Job): Job[] {
+  const i = jobs.findIndex(x => x.id === j.id);
+  return i < 0 ? [j, ...jobs] : jobs.map(x => (x.id === j.id ? j : x));
+}
+
+// Нормализация того, что прочитали из хранилища: битые записи отбрасываем, а не роняем экран
+export function normalizeJobs(raw: unknown): Job[] {
+  if (!Array.isArray(raw)) return [];
+  const out: Job[] = [];
+  for (const x of raw) {
+    if (!x || typeof x !== 'object') continue;
+    const j = x as Partial<Job>;
+    if (typeof j.id !== 'string' || typeof j.title !== 'string' || typeof j.createdAt !== 'string') continue;
+    out.push({
+      id: j.id,
+      title: j.title,
+      orderNo: typeof j.orderNo === 'string' ? j.orderNo : '',
+      note: typeof j.note === 'string' ? j.note : '',
+      createdAt: j.createdAt,
+      updatedAt: typeof j.updatedAt === 'string' ? j.updatedAt : j.createdAt,
+      photos: Array.isArray(j.photos)
+        ? j.photos.filter(p => p && typeof p.id === 'string' && (p.kind === 'photo' || p.kind === 'order'))
+        : [],
+      ...(j.example ? { example: true } : {}),
+    });
+  }
+  return out;
+}
+
+export type JobProgress = {
+  photos: number;
+  orders: number;
+  itemsOk: number;
+  itemsBad: number;
+  items: number;
+  questionsOpen: number;
+  checksDone: number;
+  checksTotal: number;
+  steps: { key: 'job' | 'photos' | 'truck' | 'phases'; label: string; done: boolean }[];
+};
+
+// Прогресс объекта для карточки в списке и для «Итога». sum — результат summarize() из work-model.
+export function jobProgress(
+  j: Job,
+  sum: { items: number; ok: number; bad: number; questionsOpen: number; checksDone: number; checksTotal: number } | null,
+): JobProgress {
+  const photos = j.photos.filter(p => p.kind === 'photo').length;
+  const orders = j.photos.filter(p => p.kind === 'order').length;
+  const s = sum ?? { items: 0, ok: 0, bad: 0, questionsOpen: 0, checksDone: 0, checksTotal: 0 };
+  return {
+    photos,
+    orders,
+    itemsOk: s.ok,
+    itemsBad: s.bad,
+    items: s.items,
+    questionsOpen: s.questionsOpen,
+    checksDone: s.checksDone,
+    checksTotal: s.checksTotal,
+    steps: [
+      { key: 'job', label: 'Объект', done: j.title.trim().length >= TITLE_MIN },
+      { key: 'photos', label: 'Фото и заказ', done: photos > 0 && orders > 0 },
+      { key: 'truck', label: 'Сверка', done: s.items > 0 && s.ok + s.bad === s.items },
+      { key: 'phases', label: 'Этапы', done: s.checksTotal > 0 && s.checksDone === s.checksTotal },
+    ],
+  };
+}
+
+const kb = (n: number) => (n >= 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)} МБ` : `${Math.max(1, Math.round(n / 1024))} КБ`);
+const hm = (iso: string) => iso.replace('T', ' ').slice(0, 16);
+
+// Шапка отчёта объекта; дальше к ней приклеивается отчёт «Работы» (buildWorkReport)
+export function buildJobHeader(j: Job, now: Date): string {
+  const p = j.photos.filter(x => x.kind === 'photo');
+  const o = j.photos.filter(x => x.kind === 'order');
+  return [
+    `ОБЪЕКТ: ${j.title}${j.example ? ' (пример, вымышленные данные)' : ''}`,
+    `№ заказа: ${j.orderNo || 'не указан'}`,
+    `Создан: ${hm(j.createdAt)} UTC · отчёт: ${now.toLocaleString('ru-RU')}`,
+    j.note ? `Заметка к объекту: ${j.note}` : '',
+    '',
+    `Фото с объекта: ${p.length}${p.length ? ' — ' + p.map(x => `${x.name} (${hm(x.addedAt)}, ${kb(x.bytes)})`).join('; ') : ''}`,
+    `Скрины заказа: ${o.length}${o.length ? ' — ' + o.map(x => `${x.name} (${hm(x.addedAt)})`).join('; ') : ''}`,
+    'Фото хранятся на телефоне, где их добавили; в этот текст входят только их названия.',
+    '',
+  ].filter((line, k, arr) => !(line === '' && arr[k - 1] === '')).join('\n');
+}

@@ -173,7 +173,7 @@ export function WorkSection() {
   );
 }
 
-function ItemCard({ item, onChange }: { item: V03Item; onChange: (p: Partial<V03Item>) => void }) {
+export function ItemCard({ item, onChange }: { item: V03Item; onChange: (p: Partial<V03Item>) => void }) {
   const v = verdict(item);
   const req = item.required === null || item.required === '' ? '?' : String(item.required);
   return (
@@ -200,7 +200,7 @@ function ItemCard({ item, onChange }: { item: V03Item; onChange: (p: Partial<V03
   );
 }
 
-function TeamCard({ row, onChange, onRemove }: { row: V03Team; onChange: (p: Partial<V03Team>) => void; onRemove: () => void }) {
+export function TeamCard({ row, onChange, onRemove }: { row: V03Team; onChange: (p: Partial<V03Team>) => void; onRemove: () => void }) {
   return (
     <Card>
       <Field label="Роль / исполнитель" value={row.role} onChangeText={x => onChange({ role: x })} />

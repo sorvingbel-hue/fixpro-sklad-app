@@ -1,4 +1,4 @@
-// Вкладка «Смена»: рабочий режим смены (раздел «Работа», ../work), тренажёр формана (учебная смена из 10 решений, 3 практики, справка)
+// Вкладка «Смена»: объекты смены (раздел «Объекты», ../jobs — начать/продолжить, фото, сверка, этапы, итог),
 // и общая «Заметка смены» команды. Тексты — в ./content (по языкам), логика — в ./logic.ts.
 import { useRef, useState } from 'react';
 import { Platform, ScrollView, StyleSheet, Text, View, type ViewInstance } from 'react-native';
@@ -17,7 +17,7 @@ import { useTrainingProgress } from './progress-store';
 import { ReferenceSection } from './reference-section';
 import { exportText } from './share';
 import { ShiftNote } from './shift-note';
-import { WorkSection } from '../work/work-section';
+import { JobsSection } from '../jobs/jobs-section';
 import { useRevealScroll } from './use-reveal';
 
 type Seg = 'work' | 'steps' | 'practice' | 'ref';
@@ -55,19 +55,19 @@ export default function TrainingScreen() {
             <View style={s.column}>
               <Text style={ui.h1} accessibilityRole="header">{t('training.title')}</Text>
 
-              <View style={s.hero}>
+              {seg !== 'work' ? <View style={s.hero}>
                 <Eyebrow>{c.header.eyebrow}</Eyebrow>
                 <Text style={s.heroTitle}>{c.header.title}</Text>
                 <Text style={ui.body}>{c.header.lead}</Text>
                 <View style={s.pills}>
                   {c.header.pills.map(p => <Text key={p} style={s.pill}>{p}</Text>)}
                 </View>
-              </View>
+              </View> : null}
 
               <View ref={segRef} collapsable={false}>
                 <Segments<Seg>
                   items={[
-                    { key: 'work', label: 'Работа' },
+                    { key: 'work', label: 'Объекты' },
                     { key: 'steps', label: c.ui.segSteps },
                     { key: 'practice', label: c.ui.segPractice },
                     { key: 'ref', label: c.ui.segRef },
@@ -77,7 +77,7 @@ export default function TrainingScreen() {
                 />
               </View>
 
-              {seg === 'work' ? <WorkSection /> : null}
+              {seg === 'work' ? <JobsSection /> : null}
               {!loaded && seg !== 'work' ? <Small>{c.ui.loading}</Small> : null}
               {loaded && seg === 'steps' ? (
                 <LessonSection

@@ -158,3 +158,15 @@ export const setTeam = (d: WorkV03Doc, k: number, patch: Partial<V03Team>): Work
   ({ ...d, team: d.team.map((t, n) => (n === k ? { ...t, ...patch } : t)) });
 
 export const removeTeam = (d: WorkV03Doc, k: number): WorkV03Doc => ({ ...d, team: d.team.filter((_, n) => n !== k) });
+
+// Свои позиции в сверке (объекты «Формана»): добавить и убрать строку
+export const ITEMS_MAX = 40;
+
+export function addItem(d: WorkV03Doc, name: string, required: number | null, unit: string, id: string): WorkV03Doc {
+  const n = name.trim();
+  if (!n || d.items.length >= ITEMS_MAX) return d;
+  const item: V03Item = { id, name: n.slice(0, 80), required, unit: unit.trim() || 'шт.', source: 'бригадир', hint: '', ordered: '', actual: '', status: 'unknown', location: '', note: '' };
+  return { ...d, items: [...d.items, item] };
+}
+
+export const removeItem = (d: WorkV03Doc, id: string): WorkV03Doc => ({ ...d, items: d.items.filter(i => i.id !== id) });
