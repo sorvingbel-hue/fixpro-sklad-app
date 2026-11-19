@@ -1,4 +1,4 @@
-// Вкладка «Смена»: тренажёр формана (учебная смена из 10 решений, 3 практики, справка)
+// Вкладка «Смена»: рабочий режим смены (раздел «Работа», ../work), тренажёр формана (учебная смена из 10 решений, 3 практики, справка)
 // и общая «Заметка смены» команды. Тексты — в ./content (по языкам), логика — в ./logic.ts.
 import { useRef, useState } from 'react';
 import { Platform, ScrollView, StyleSheet, Text, View, type ViewInstance } from 'react-native';
@@ -17,15 +17,16 @@ import { useTrainingProgress } from './progress-store';
 import { ReferenceSection } from './reference-section';
 import { exportText } from './share';
 import { ShiftNote } from './shift-note';
+import { WorkSection } from '../work/work-section';
 import { useRevealScroll } from './use-reveal';
 
-type Seg = 'steps' | 'practice' | 'ref';
+type Seg = 'work' | 'steps' | 'practice' | 'ref';
 
 export default function TrainingScreen() {
   const c = getTrainingContent(getLanguage());
   const { progress, loaded, saveState, save } = useTrainingProgress(c.lessons);
   const { viewport, scroll, content, reveal } = useRevealScroll();
-  const [seg, setSeg] = useState<Seg>('steps');
+  const [seg, setSeg] = useState<Seg>('work');
   const [reportMsg, setReportMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const segRef = useRef<ViewInstance>(null);
 
@@ -66,6 +67,7 @@ export default function TrainingScreen() {
               <View ref={segRef} collapsable={false}>
                 <Segments<Seg>
                   items={[
+                    { key: 'work', label: 'Работа' },
                     { key: 'steps', label: c.ui.segSteps },
                     { key: 'practice', label: c.ui.segPractice },
                     { key: 'ref', label: c.ui.segRef },
@@ -75,7 +77,8 @@ export default function TrainingScreen() {
                 />
               </View>
 
-              {!loaded ? <Small>{c.ui.loading}</Small> : null}
+              {seg === 'work' ? <WorkSection /> : null}
+              {!loaded && seg !== 'work' ? <Small>{c.ui.loading}</Small> : null}
               {loaded && seg === 'steps' ? (
                 <LessonSection
                   c={c}

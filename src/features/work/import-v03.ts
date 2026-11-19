@@ -43,11 +43,11 @@ export type V03Phase = { id: string; title: string; checks: [string, string][] }
 // Документ «Формана» (коллекция fm_work_v03, id = job)
 export type WorkV03Doc = DocData & {
   kind: 'forman-work-v03';
-  source: 'dot-pilot-0.3';
+  source: 'dot-pilot-0.3' | 'forman'; // импорт из пилота или смена, начатая в «Формане»
   schema: 1;
   job: string;
   updated: string | null;
-  importedAt: string;
+  importedAt: string | null;          // null — смена создана в «Формане», не импортирована
   items: V03Item[];
   questions: V03Question[];
   team: V03Team[];
