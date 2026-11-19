@@ -96,3 +96,35 @@ assert.deepEqual(fromDb.checks, { scope: true });
 assert.equal(fromDb.team.length, TEAM_MAX);
 
 console.log('work-model: все проверки пройдены');
+
+// --- 5. позиции со скрина заказа и «Недостача по заказу»
+{
+  const { addOrderItems, shortages, shortageText, ORDER_SOURCE, ITEMS_MAX } = await import('../src/features/work/work-model.ts');
+  const base = { ...seedWork(), items: [] };
+  const r = addOrderItems(base, [{ name: 'Bar type supply registers 10x6', qty: 6, unit: 'шт.' }, { name: 'Condensate pump', qty: null, unit: 'шт.' }, { name: '  ', qty: 1, unit: '' }], k => 'o' + k);
+  assert.equal(r.added, 2);
+  const [reg, pump] = r.doc.items;
+  assert.equal(reg.required, 6); assert.equal(reg.ordered, 6); assert.equal(reg.actual, ''); assert.equal(reg.status, 'unknown');
+  assert.equal(reg.source, ORDER_SOURCE);
+  assert.equal(pump.required, null); assert.equal(pump.ordered, '');
+  assert.equal(base.items.length, 0, 'исходный документ не меняется');
+  assert.deepEqual(shortages(r.doc), [], 'пока «в траке» пусто — недостачи нет');
+  const d4 = setItem(r.doc, 'o0', { actual: '4' });
+  const sh = shortages(d4);
+  assert.equal(sh.length, 1);
+  assert.equal(sh[0].missing, 2);
+  assert.equal(shortageText(sh[0]), 'Bar type supply registers 10x6: заказано 6, в траке 4 — не хватает 2 шт.');
+  assert.equal(shortages(setItem(d4, 'o0', { actual: '6' })).length, 0);
+  assert.equal(shortageText(shortages(setItem(r.doc, 'o1', { status: 'missing' }))[0]), 'Condensate pump — нет в траке (отмечено вручную)');
+  const full = addOrderItems(base, Array.from({ length: ITEMS_MAX + 3 }, (_, k) => ({ name: 'p' + k, qty: 1, unit: 'шт.' })), k => 'f' + k);
+  assert.equal(full.added, ITEMS_MAX); assert.equal(full.overLimit, 3);
+  // позиции с вымышленного примера помечены отдельно — от настоящего заказа отличаются в сверке, итоге и отчёте
+  const { SAMPLE_SOURCE } = await import('../src/features/work/work-model.ts');
+  const smp = addOrderItems(base, [{ name: 'Bar type supply registers 10x6', qty: 6, unit: 'шт.' }], k => 's' + k, SAMPLE_SOURCE);
+  assert.equal(smp.doc.items[0].source, SAMPLE_SOURCE);
+  assert.equal(smp.doc.items[0].hint, `Источник: ${SAMPLE_SOURCE}.`);
+  const shs = shortages(setItem(smp.doc, 's0', { actual: '4' }));
+  assert.equal(shs[0].fromOrder, true); assert.equal(shs[0].sample, true);
+  assert.equal(shortageText(shs[0]), 'Bar type supply registers 10x6 [ПРИМЕР]: заказано 6, в траке 4 — не хватает 2 шт.');
+  console.log('work-model: позиции со скрина и недостача — пройдено');
+}

@@ -179,7 +179,7 @@ export function ItemCard({ item, onChange }: { item: V03Item; onChange: (p: Part
   return (
     <Card>
       <Text style={s.title}>{item.name}</Text>
-      <Muted>{`Требуется: ${req} ${item.unit}. ${item.hint}`}</Muted>
+      <Muted>{`Требуется: ${req} ${item.unit.replace(/\.$/, '')}. ${item.hint}`.trimEnd()}</Muted>
       <View style={s.row}>
         <View style={s.cell}>
           <Field label="Заказано" value={item.ordered === null ? '' : String(item.ordered)} keyboardType="numeric" onChangeText={x => onChange({ ordered: x })} />

@@ -13,6 +13,14 @@ export async function pickPhotos(_source: PickSource, _kind: PhotoKind): Promise
   return { ok: false, reason: PHOTO_WHERE };
 }
 
+export async function addImageBlob(_blob: Blob, _kind: PhotoKind, _name: string): Promise<PickResult> {
+  return { ok: false, reason: PHOTO_WHERE };
+}
+
+export async function photoBlob(_id: string): Promise<Blob | null> {
+  return null;
+}
+
 export async function photoUrl(_id: string, _size: 'thumb' | 'full'): Promise<string | null> {
   return null;
 }

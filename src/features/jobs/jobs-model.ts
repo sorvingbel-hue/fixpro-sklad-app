@@ -14,6 +14,7 @@ export type JobPhoto = {
   h: number;
   bytes: number;
   name: string;        // имя исходного файла (для отчёта)
+  sample?: boolean;    // встроенный вымышленный пример скрина заказа (кнопка «Попробовать разбор на примере»)
 };
 
 export type Job = {
@@ -157,7 +158,7 @@ export function jobProgress(
   sum: { items: number; ok: number; bad: number; questionsOpen: number; checksDone: number; checksTotal: number } | null,
 ): JobProgress {
   const photos = j.photos.filter(p => p.kind === 'photo').length;
-  const orders = j.photos.filter(p => p.kind === 'order').length;
+  const orders = j.photos.filter(p => p.kind === 'order' && !p.sample).length; // вымышленный пример — не заказ
   const s = sum ?? { items: 0, ok: 0, bad: 0, questionsOpen: 0, checksDone: 0, checksTotal: 0 };
   return {
     photos,
@@ -182,7 +183,8 @@ const kb = (n: number) => (n >= 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)} �
 // Шапка отчёта объекта; дальше к ней приклеивается отчёт «Работы» (buildWorkReport)
 export function buildJobHeader(j: Job, now: Date): string {
   const p = j.photos.filter(x => x.kind === 'photo');
-  const o = j.photos.filter(x => x.kind === 'order');
+  const o = j.photos.filter(x => x.kind === 'order' && !x.sample);
+  const samples = j.photos.filter(x => x.kind === 'order' && x.sample);
   return [
     `ОБЪЕКТ: ${j.title}${j.example ? ' (пример, вымышленные данные)' : ''}`,
     `№ заказа: ${j.orderNo || 'не указан'}`,
@@ -191,6 +193,7 @@ export function buildJobHeader(j: Job, now: Date): string {
     '',
     `Фото с объекта: ${p.length}${p.length ? ' — ' + p.map(x => `${x.name} (${localTime(x.addedAt)}, ${kb(x.bytes)})`).join('; ') : ''}`,
     `Скрины заказа: ${o.length}${o.length ? ' — ' + o.map(x => `${x.name} (${localTime(x.addedAt)})`).join('; ') : ''}`,
+    ...(samples.length ? [`Пример скрина заказа (вымышленный, для проверки разбора; не настоящий заказ): ${samples.length}`] : []),
     'Сами фото — в сообщении вместе с этим отчётом (кнопка «Отправить отчёт с фото») или в телефоне, где их добавили.',
     '',
   ].filter((line, k, arr) => !(line === '' && arr[k - 1] === '')).join('\n');

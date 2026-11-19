@@ -1,5 +1,7 @@
 // Фото объекта в браузере: выбор с камеры или из галереи (обычный <input type=file>),
 // сжатие до 1600 px (JPEG), миниатюра 360 px, хранение в IndexedDB ЭТОГО браузера на ЭТОМ телефоне.
+// У скрина заказа ещё копия для распознавания (`:ocr`): ширина как у скрина (до 1600 px), длина — какая есть
+// (длинный скрин прокруткой 1170×5000 при сжатии «по длинной стороне до 1600» стал бы 375×1600 — цифры не прочитать).
 // Никуда не отправляется. Ошибки не бросаются наружу — возвращается понятная причина.
 import { newId, type JobPhoto, type PhotoKind } from './jobs-model';
 
@@ -13,6 +15,8 @@ const DB = 'forman-photos';
 const STORE = 'blobs';
 const FULL = 1600;
 const THUMB = 360;
+const OCR_W = 1600;      // копия для распознавания: ширина не больше…
+const OCR_AREA = 12e6;   // …и не больше 12 Мп (у Safari на iPhone предел холста ~16,7 Мп)
 
 function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -64,16 +68,29 @@ function loadImage(file: Blob): Promise<HTMLImageElement> {
   });
 }
 
-function toJpeg(img: HTMLImageElement, max: number, q: number): Promise<{ blob: Blob; w: number; h: number }> {
-  const k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+function toJpeg(img: HTMLImageElement, max: number, q: number, k0?: number): Promise<{ blob: Blob; w: number; h: number }> {
+  const k = k0 ?? Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
   const w = Math.max(1, Math.round(img.naturalWidth * k));
   const h = Math.max(1, Math.round(img.naturalHeight * k));
   const c = document.createElement('canvas');
   c.width = w; c.height = h;
   const ctx = c.getContext('2d');
   if (!ctx) return Promise.reject(new Error('canvas'));
+  ctx.imageSmoothingQuality = 'high';
   ctx.drawImage(img, 0, 0, w, h);
   return new Promise((resolve, reject) => c.toBlob(b => (b ? resolve({ blob: b, w, h }) : reject(new Error('blob'))), 'image/jpeg', q));
+}
+
+// Копия скрина заказа для распознавания: уменьшаем только слишком широкие/огромные (не по длинной стороне)
+async function ocrCopy(img: HTMLImageElement): Promise<Blob | null> {
+  const w = img.naturalWidth, h = img.naturalHeight;
+  const k = Math.min(1, OCR_W / w, Math.sqrt(OCR_AREA / (w * h)));
+  if (Math.round(Math.max(w, h) * k) <= FULL) return null; // вышло бы то же, что полная копия
+  try {
+    return (await toJpeg(img, 0, 0.9, k)).blob;
+  } catch {
+    return null; // не вышло (память) — распознается полная копия
+  }
 }
 
 export async function pickPhotos(source: PickSource, kind: PhotoKind): Promise<PickResult> {
@@ -84,19 +101,50 @@ export async function pickPhotos(source: PickSource, kind: PhotoKind): Promise<P
   let skipped = 0;
   for (const f of files) {
     try {
-      const img = await loadImage(f);
-      const full = await toJpeg(img, FULL, 0.82);
-      const thumb = await toJpeg(img, THUMB, 0.75);
-      const now = new Date();
-      const id = newId('ph', now);
-      await tx('readwrite', s => { s.put(full.blob, `${id}:full`); s.put(thumb.blob, `${id}:thumb`); });
-      photos.push({ id, kind, addedAt: now.toISOString(), w: full.w, h: full.h, bytes: full.blob.size, name: f.name || (kind === 'order' ? 'скрин заказа' : 'фото') });
+      photos.push(await storeImage(f, kind, f.name || (kind === 'order' ? 'скрин заказа' : 'фото')));
     } catch {
       skipped++;
     }
   }
   if (!photos.length) return { ok: false, reason: 'Не удалось прочитать файл. Если это HEIC с компьютера — выберите JPG/PNG или снимите заново с телефона.' };
   return { ok: true, photos, skipped };
+}
+
+// Сжать и записать одну картинку (полное 1600 px + миниатюра) в IndexedDB этого браузера
+async function storeImage(file: Blob, kind: PhotoKind, name: string): Promise<JobPhoto> {
+  const img = await loadImage(file);
+  const full = await toJpeg(img, FULL, 0.82);
+  const thumb = await toJpeg(img, THUMB, 0.75);
+  const ocr = kind === 'order' ? await ocrCopy(img) : null;
+  const now = new Date();
+  const id = newId('ph', now);
+  await tx('readwrite', s => {
+    s.put(full.blob, `${id}:full`);
+    s.put(thumb.blob, `${id}:thumb`);
+    if (ocr) s.put(ocr, `${id}:ocr`);
+  });
+  return { id, kind, addedAt: now.toISOString(), w: full.w, h: full.h, bytes: full.blob.size, name };
+}
+
+// Картинка, полученная не из окна выбора (встроенный вымышленный пример скрина заказа) — тот же путь, что у фото
+export async function addImageBlob(blob: Blob, kind: PhotoKind, name: string): Promise<PickResult> {
+  if (!PHOTOS_SUPPORTED) return { ok: false, reason: 'Этот браузер не умеет хранить фото. Откройте ссылку в Safari или Chrome.' };
+  try {
+    return { ok: true, photos: [await storeImage(blob, kind, name)], skipped: 0 };
+  } catch {
+    return { ok: false, reason: 'Не удалось записать картинку в память телефона.' };
+  }
+}
+
+// Картинка для распознавания скрина заказа на телефоне: копия для распознавания, если есть (скрины,
+// добавленные до неё, и восстановленные из копии файлом — только полная 1600 px), иначе полное фото
+export async function photoBlob(id: string): Promise<Blob | null> {
+  if (!PHOTOS_SUPPORTED) return null;
+  try {
+    return (await tx<Blob>('readonly', s => s.get(`${id}:ocr`))) ?? (await tx<Blob>('readonly', s => s.get(`${id}:full`))) ?? null;
+  } catch {
+    return null;
+  }
 }
 
 // ---------- Копия файлом (М7) ----------
@@ -144,9 +192,10 @@ export async function photoDataUrls(
 export async function restorePhoto(id: string, dataUrl: string): Promise<'written' | 'exists' | 'fail'> {
   if (!PHOTOS_SUPPORTED) return 'fail';
   try {
-    // ключи одного фото — `${id}:full` и `${id}:thumb`; между ними по алфавиту других ключей нет
-    const have = await tx<number>('readonly', s => s.count(IDBKeyRange.bound(`${id}:full`, `${id}:thumb`)));
-    if (have === 2) return 'exists';
+    // ключи одного фото — `${id}:full`, `${id}:thumb` (и у скрина заказа `${id}:ocr`); считаем по одному
+    const full0 = await tx<number>('readonly', s => s.count(`${id}:full`));
+    const thumb0 = await tx<number>('readonly', s => s.count(`${id}:thumb`));
+    if (full0 === 1 && thumb0 === 1) return 'exists';
     const full = dataUrlToBlob(dataUrl);
     const img = await loadImage(full); // заодно проверка, что это правда картинка
     const thumb = await toJpeg(img, THUMB, 0.75);
@@ -177,7 +226,7 @@ export async function photoUrl(id: string, size: 'thumb' | 'full'): Promise<stri
 export async function deletePhotos(ids: string[]): Promise<void> {
   if (!ids.length || !PHOTOS_SUPPORTED) return;
   try {
-    await tx('readwrite', s => { for (const id of ids) { s.delete(`${id}:full`); s.delete(`${id}:thumb`); } });
+    await tx('readwrite', s => { for (const id of ids) { s.delete(`${id}:full`); s.delete(`${id}:thumb`); s.delete(`${id}:ocr`); } });
   } catch { /* не удалилось — останется мусор в хранилище, экран не ломаем */ }
   for (const id of ids) for (const k of [`${id}:full`, `${id}:thumb`]) {
     const u = urls.get(k);

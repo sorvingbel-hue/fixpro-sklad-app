@@ -26,7 +26,7 @@ function Thumb({ p, onOpen }: { p: JobPhoto; onOpen: () => void }) {
       {url ? <Image source={{ uri: url }} style={s.thumbImg} resizeMode="cover" /> : (
         <Text style={s.thumbMissing}>{missing ? 'нет на этом устройстве' : '…'}</Text>
       )}
-      {p.kind === 'order' ? <Text style={s.badge}>ЗАКАЗ</Text> : null}
+      {p.kind === 'order' ? <Text style={s.badge}>{p.sample ? 'ПРИМЕР' : 'ЗАКАЗ'}</Text> : null}
     </Pressable>
   );
 }

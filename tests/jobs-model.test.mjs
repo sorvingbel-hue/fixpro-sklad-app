@@ -70,6 +70,19 @@ assert.match(head, /Фото с объекта: 1 — a\.jpg/);
 assert.match(head, /Скрины заказа: 1 — b\.jpg/);
 assert.ok(!head.includes('\n\n\n'));
 
+// 7б. Вымышленный пример скрина заказа — не настоящий заказ: не закрывает шаг «Фото и заказ», в отчёте отдельно
+{
+  const sample = { id: 'ph-s', kind: 'order', addedAt: t0.toISOString(), w: 936, h: 1600, bytes: 9000, name: 'ПРИМЕР.png', sample: true };
+  const js = addPhotos(j, [{ ...j3.photos[0] }, sample]);
+  const ps = jobProgress(js, summarize(w));
+  assert.equal(ps.orders, 0, 'пример не считается скрином заказа');
+  assert.equal(ps.steps[1].done, false);
+  const hs = buildJobHeader(js, t0);
+  assert.match(hs, /Скрины заказа: 0\n/);
+  assert.match(hs, /Пример скрина заказа \(вымышленный, для проверки разбора; не настоящий заказ\): 1/);
+  assert.ok(!hs.includes('\n\n\n'));
+}
+
 // 8. id уникальны
 const ids = new Set(Array.from({ length: 500 }, () => newId('ph')));
 assert.equal(ids.size, 500);

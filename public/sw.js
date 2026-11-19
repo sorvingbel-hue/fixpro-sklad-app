@@ -13,11 +13,19 @@
  *    на вкладку) и «то новая, то старая версия» (старый код мог бы переписать данные новой);
  *  - только папка /fixpro-sklad-app/forman/ этого сайта: «Склад», Supabase и другие сайты не трогаем;
  *  - кэш с версией в имени; при включении новой версии удаляются старые кэши «Формана» (чужие кэши — нет).
+ *  - распознавание скрина заказа (папка ocr/, до 7 МБ) в общий кэш НЕ входит: файлы скачиваются при первом
+ *    «Разобрать» и кладутся в отдельный кэш forman-ocr-files — он переживает обновления «Формана», так что
+ *    второй и следующие разборы работают и без сети. У каждого файла в sw.js записан хэш содержимого (OCR_FILES,
+ *    подставляет sw-stamp): в кэш кладётся только файл с этим хэшем; файл поменялся на сайте (новый пример,
+ *    исправленный tesseract.js) — новая сборка, новый sw.js, и при её включении устаревший файл из кэша удаляется
+ *    (остальные остаются — 7 МБ заново не качаются);
+ *  - если первый разбор прошёл, пока service worker ещё не управлял страницей (первое открытие по медленной сети),
+ *    страница после удачного разбора просит его сохранить файлы распознавания (сообщение OCR_KEEP).
  *
  * Аварийно выключить (если с service worker что-то не так): выложить вместо dist/sw.js такой файл —
  *   self.addEventListener('install', () => self.skipWaiting());
  *   self.addEventListener('activate', e => e.waitUntil((async () => {
- *     for (const k of await caches.keys()) if (k.startsWith('forman-sw-')) await caches.delete(k);
+ *     for (const k of await caches.keys()) if (k.startsWith('forman-sw-') || k.startsWith('forman-ocr-')) await caches.delete(k);
  *     await self.registration.unregister();
  *     for (const c of await self.clients.matchAll({ type: 'window' })) c.navigate(c.url);
  *   })()));
@@ -25,10 +33,14 @@
  */
 const VERSION = '__FORMAN_SW_VERSION__';
 const PRECACHE = [/*__FORMAN_SW_PRECACHE__*/];
+const OCR_FILES = {/*__FORMAN_OCR_FILES__*/}; // 'ocr/t7/worker.min.js': первые 12 знаков sha256 содержимого
 
 const STAMPED = !VERSION.startsWith('__');
 const PREFIX = 'forman-sw-';
 const CACHE = PREFIX + VERSION;
+const OCR_PREFIX = 'forman-ocr-';
+const OCR_CACHE = OCR_PREFIX + 'files';
+const OCR_HASH = 'X-Forman-Hash'; // хэш файла у ответа в кэше распознавания
 const SCOPE = new URL(self.registration.scope); // https://<сайт>/fixpro-sklad-app/forman/
 const BASE = SCOPE.pathname;
 const NAV_TIMEOUT_MS = 8000;
@@ -67,13 +79,21 @@ self.addEventListener('install', event => {
 
 self.addEventListener('activate', event => {
   event.waitUntil((async () => {
-    for (const key of await caches.keys()) if (key.startsWith(PREFIX) && key !== CACHE) await caches.delete(key);
+    for (const key of await caches.keys()) {
+      if ((key.startsWith(PREFIX) && key !== CACHE) || (key.startsWith(OCR_PREFIX) && key !== OCR_CACHE)) await caches.delete(key);
+    }
+    if (STAMPED) await pruneOcr();
     await self.clients.claim();
   })());
 });
 
 self.addEventListener('message', event => {
-  if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting();
+  const d = event.data;
+  if (d && d.type === 'SKIP_WAITING') self.skipWaiting();
+  else if (d && d.type === 'OCR_KEEP' && Array.isArray(d.urls)) {
+    const port = event.ports && event.ports[0];
+    event.waitUntil(keepOcr(d.urls).then(r => port && port.postMessage(r), () => port && port.postMessage({ kept: 0, total: 0 })));
+  }
 });
 
 self.addEventListener('fetch', event => {
@@ -84,7 +104,8 @@ self.addEventListener('fetch', event => {
   if (url.origin !== self.location.origin) return; // *.supabase.co, шрифты Google и т.п. — мимо
   if (!url.pathname.startsWith(BASE)) return;      // «Склад» и всё вне папки «Формана» — мимо
   if (url.pathname === BASE + 'sw.js') return;
-  if (req.mode === 'navigate') event.respondWith(onNavigate(req, url));
+  if (url.pathname.startsWith(BASE + 'ocr/')) event.respondWith(ocrFile(event, url));
+  else if (req.mode === 'navigate') event.respondWith(onNavigate(req, url));
   else if (isHashed(url.pathname) || isIcon(url.pathname)) event.respondWith(cacheFirst(event, url));
 });
 
@@ -144,4 +165,71 @@ async function cacheFirst(event, url) {
     event.waitUntil(cache.put(key, copy).catch(() => undefined));
   }
   return res;
+}
+
+// ---------- Файлы распознавания (ocr/) ----------
+const ocrPath = url => url.pathname.slice(BASE.length); // 'ocr/t7/worker.min.js'
+
+async function sha12(buf) {
+  const h = new Uint8Array(await crypto.subtle.digest('SHA-256', buf));
+  return Array.from(h.slice(0, 6), b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// Свежая копия с сайта (мимо HTTP-кэша браузера: он мог сохранить прежний файл на 10 минут). В кэш — только
+// если содержимое совпало с хэшем из этой сборки; иначе файл отдаётся как есть, но не запоминается.
+async function fetchOcr(url, want) {
+  const res = await fetch(url.href, { cache: 'no-cache' });
+  if (res.status !== 200 || (res.type !== 'basic' && res.type !== 'default')) return { res, keep: null };
+  const body = await res.arrayBuffer();
+  const type = res.headers.get('Content-Type') || 'application/octet-stream';
+  const make = () => new Response(body, { status: 200, headers: { 'Content-Type': type, [OCR_HASH]: want } });
+  const same = (await sha12(body)) === want;
+  return { res: make(), keep: same ? make() : null };
+}
+
+// По требованию — из своего кэша (если хэш тот же, что в этой сборке), иначе с сайта и в кэш.
+// Запросы потока распознавания (Web Worker с адреса сайта) тоже приходят сюда.
+async function ocrFile(event, url) {
+  const want = OCR_FILES[ocrPath(url)];
+  if (!want) return fetch(event.request); // файла нет в сборке — просто с сайта, без кэша
+  const cache = await caches.open(OCR_CACHE);
+  const hit = await cache.match(keyOf(url));
+  if (hit && hit.headers.get(OCR_HASH) === want) return hit;
+  const { res, keep } = await fetchOcr(url, want);
+  if (keep) event.waitUntil(cache.put(keyOf(url), keep).catch(() => undefined));
+  return res;
+}
+
+// Страница после удачного разбора: «сохрани эти файлы» (на случай, если разбор шёл мимо service worker)
+async function keepOcr(urls) {
+  if (!STAMPED) return { kept: 0, total: 0 };
+  const cache = await caches.open(OCR_CACHE);
+  let kept = 0, total = 0;
+  for (const u of urls.slice(0, 12)) {
+    let url;
+    try { url = new URL(u); } catch { continue; }
+    if (url.origin !== self.location.origin || !url.pathname.startsWith(BASE + 'ocr/')) continue;
+    const want = OCR_FILES[ocrPath(url)];
+    if (!want) continue;
+    total++;
+    const hit = await cache.match(keyOf(url));
+    if (hit && hit.headers.get(OCR_HASH) === want) { kept++; continue; }
+    try {
+      const { keep } = await fetchOcr(url, want);
+      if (keep) { await cache.put(keyOf(url), keep); kept++; }
+    } catch { /* нет сети — сохранится в следующий раз */ }
+  }
+  return { kept, total };
+}
+
+// При включении новой сборки: убрать из кэша распознавания файлы, которых в ней нет или которые поменялись
+async function pruneOcr() {
+  try {
+    const cache = await caches.open(OCR_CACHE);
+    for (const req of await cache.keys()) {
+      const want = OCR_FILES[ocrPath(new URL(req.url))];
+      const res = await cache.match(req);
+      if (!want || !res || res.headers.get(OCR_HASH) !== want) await cache.delete(req);
+    }
+  } catch { /* не вышло — устаревшие файлы просто не будут отдаваться (хэш не совпадёт) */ }
 }

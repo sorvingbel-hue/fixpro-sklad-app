@@ -268,3 +268,54 @@ export function addQuestion(d: WorkV03Doc, text: string, id: string): WorkV03Doc
 }
 
 export const removeQuestion = (d: WorkV03Doc, id: string): WorkV03Doc => ({ ...d, questions: d.questions.filter(q => q.id !== id) });
+
+// ---------- Позиции со скрина заказа (распознавание на телефоне → черновик → «Подтвердить») ----------
+export const ORDER_SOURCE = 'скрин заказа';
+export const SAMPLE_SOURCE = 'скрин заказа (ПРИМЕР, вымышленный)'; // позиции со встроенного примера — не путать с настоящими
+
+// Подтверждённые строки черновика → позиции сверки: заказано = нужно = кол-во, «в траке» пусто, «не проверял».
+// Количество null (не прочитано) — позиция без количества, впишут в сверке. Не больше ITEMS_MAX позиций в сверке.
+export function addOrderItems(
+  d: WorkV03Doc,
+  rows: { name: string; qty: number | null; unit: string }[],
+  idOf: (k: number) => string,
+  source: string = ORDER_SOURCE,
+): { doc: WorkV03Doc; added: number; overLimit: number } {
+  const items = [...d.items];
+  let added = 0, overLimit = 0;
+  rows.forEach((r, k) => {
+    const name = r.name.trim().slice(0, 80);
+    if (!name) return;
+    if (items.length >= ITEMS_MAX) { overLimit++; return; }
+    const q = r.qty !== null && Number.isFinite(r.qty) && r.qty >= 0 ? r.qty : null;
+    items.push({
+      id: idOf(k), name, required: q, unit: r.unit.trim() || 'шт.', source, hint: `Источник: ${source}.`,
+      ordered: q === null ? '' : q, actual: '', status: 'unknown', location: '', note: '',
+    });
+    added++;
+  });
+  return { doc: added ? { ...d, items } : d, added, overLimit };
+}
+
+// Недостача: позиции, где по существующему verdict «Не хватает» (в траке меньше нужного или «Нет» отмечено вручную)
+export type Shortage = { id: string; name: string; need: number | null; actual: number | null; missing: number | null; unit: string; fromOrder: boolean; sample: boolean };
+
+export function shortages(d: WorkV03Doc): Shortage[] {
+  const out: Shortage[] = [];
+  for (const i of d.items) {
+    const v = verdict(i);
+    if (v.kind !== 'bad' || !v.text.startsWith('Не хватает')) continue;
+    const need = quantity(i.required), actual = quantity(i.actual);
+    out.push({
+      id: i.id, name: i.name, need, actual, unit: i.unit, fromOrder: i.source.startsWith(ORDER_SOURCE), sample: i.source === SAMPLE_SOURCE,
+      missing: need !== null && actual !== null && actual < need ? need - actual : null,
+    });
+  }
+  return out;
+}
+
+export function shortageText(s: Shortage): string {
+  const tag = s.sample ? ' [ПРИМЕР]' : '';
+  if (s.missing === null) return `${s.name}${tag} — нет в траке (отмечено вручную)`;
+  return `${s.name}${tag}: ${s.fromOrder ? 'заказано' : 'нужно'} ${s.need}, в траке ${s.actual} — не хватает ${s.missing} ${s.unit}`.trimEnd();
+}

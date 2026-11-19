@@ -156,6 +156,7 @@ function sanitizeJob(raw: unknown, fix: Fix, cut: () => void): Job | null {
       h: num(p.h),
       bytes: num(p.bytes),
       name: typeof p.name === 'string' && p.name.trim() ? p.name.slice(0, FILE_LIMITS.photoName) : p.kind === 'order' ? 'скрин заказа' : 'фото',
+      ...(p.sample === true ? { sample: true } : {}),
     });
     if (list.length >= FILE_LIMITS.photosPerJob) break;
   }

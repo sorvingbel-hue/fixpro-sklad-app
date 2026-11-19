@@ -11,8 +11,8 @@ import { Checkbox, Collapsible } from '../training/parts';
 import { exportText } from '../training/share';
 import type { WorkV03Doc } from '../work/import-v03';
 import {
-  addItem, addQuestion, addTeam, buildWorkReport, ITEMS_MAX, QUESTIONS_MAX, removeItem, removeQuestion, removeTeam, setCheck,
-  setItem, setQuestion, setTeam, summarize, TEAM_MAX, verdict,
+  addItem, addOrderItems, addQuestion, addTeam, buildWorkReport, ITEMS_MAX, quantity, QUESTIONS_MAX, removeItem, removeQuestion,
+  removeTeam, SAMPLE_SOURCE, setCheck, setItem, setQuestion, setTeam, shortages, shortageText, summarize, TEAM_MAX, verdict,
 } from '../work/work-model';
 import { ItemCard, TeamCard } from '../work/work-section';
 import {
@@ -20,9 +20,11 @@ import {
   type Job, type JobPhoto, type PhotoKind,
 } from './jobs-model';
 import { loadWork, saveWork } from './jobs-store';
+import { fetchSample, OCR_SAMPLE_NAME } from './order-ocr';
+import { OrderOcrPanel } from './order-ocr-panel';
 import { PhotoGrid } from './photo-grid';
 import {
-  canShareFiles, copyText, deletePhotos, PHOTO_WHERE, photoFiles, PHOTOS_SUPPORTED, pickPhotos, shareFiles, type PickSource,
+  addImageBlob, canShareFiles, copyText, deletePhotos, PHOTO_WHERE, photoFiles, PHOTOS_SUPPORTED, pickPhotos, shareFiles, type PickSource,
 } from './photo-store';
 
 export function confirmAction(text: string, onYes: () => void) {
@@ -54,6 +56,7 @@ export function JobScreen({ job, onJob, onBack, onDelete }: Props) {
   const [shareReady, setShareReady] = useState<{ files: File[]; text: string } | null>(null);
   const latest = useRef<WorkV03Doc | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const draftOpen = useRef(false); // открыт черновик со скрина (не подтверждён) — при уходе к списку спросить
 
   useEffect(() => {
     let alive = true;
@@ -121,7 +124,40 @@ export function JobScreen({ job, onJob, onBack, onDelete }: Props) {
 
   function reportText(now: Date): string | null {
     const d = latest.current;
-    return d ? buildJobHeader(job, now) + '\n' + buildWorkReport(d, now, job.title) : null;
+    if (!d) return null;
+    const sh = shortages(d);
+    const short = sh.length ? ['НЕДОСТАЧА ПО ЗАКАЗУ:', ...sh.map(x => `• ${shortageText(x)}`), '', ''].join('\n') : '';
+    return buildJobHeader(job, now) + '\n' + short + buildWorkReport(d, now, job.title);
+  }
+
+  // «Попробовать разбор на примере»: вымышленный скрин заказа с сайта «Формана» → в объект как скрин заказа (ПРИМЕР).
+  // Пример в объекте один: повторное нажатие разбирает уже добавленный, а не добавляет ещё один.
+  async function addSample(): Promise<{ ok: true; photo: JobPhoto } | { ok: false; reason: string }> {
+    const have = job.photos.find(p => p.kind === 'order' && p.sample);
+    if (have) return { ok: true, photo: have };
+    if (job.photos.length >= PHOTOS_MAX) return { ok: false, reason: `В объекте уже ${PHOTOS_MAX} фото — удалите лишние.` };
+    const blob = await fetchSample();
+    if (!blob) return { ok: false, reason: 'Не удалось загрузить пример с сайта «Формана». Первый раз нужна сеть.' };
+    const r = await addImageBlob(blob, 'order', OCR_SAMPLE_NAME);
+    if (!r.ok) return r;
+    const photo: JobPhoto = { ...r.photos[0], sample: true };
+    if (!(await saveJob(addPhotos(job, [photo])))) {
+      await deletePhotos([photo.id]);
+      return { ok: false, reason: 'Пример не записался в объект — попробуйте ещё раз.' };
+    }
+    setShareReady(null);
+    setPhotoMsg({ ok: true, text: 'Пример скрина заказа (вымышленный) добавлен и сохранён на этом устройстве.' });
+    return { ok: true, photo };
+  }
+
+  // «Подтвердить и добавить в сверку» в черновике: только здесь сверка меняется
+  function onOrderConfirm(rows: { name: string; qty: number | null; unit: string }[], sample: boolean) {
+    const cur = latest.current;
+    if (!cur) return { added: 0, overLimit: rows.length };
+    const base = newId('oi');
+    const res = addOrderItems(cur, rows, k => `${base}-${k}`, sample ? SAMPLE_SOURCE : undefined);
+    if (res.added) update(() => res.doc);
+    return { added: res.added, overLimit: res.overLimit };
   }
 
   async function onReport() {
@@ -167,14 +203,23 @@ export function JobScreen({ job, onJob, onBack, onDelete }: Props) {
   const prog = jobProgress(job, sum);
   const photos = job.photos.filter(p => p.kind === 'photo');
   const orders = job.photos.filter(p => p.kind === 'order');
+  const realOrders = orders.filter(p => !p.sample); // пример — не настоящий заказ
   const bad = work.items.filter(i => verdict(i).kind === 'bad');
   const unchecked = work.items.filter(i => verdict(i).kind === 'info');
   const openQ = work.questions.filter(q => !q.resolved);
   const openChecks = work.phases.flatMap(p => p.checks.filter(c => !work.checks[c[0]]).map(c => `${p.title}: ${c[1]}`));
+  const short = shortages(work);
+  const waitTruck = work.items.filter(i => quantity(i.required) !== null && quantity(i.actual) === null && i.status !== 'missing');
+
+  // К списку объектов: неподтверждённый черновик со скрина пропадёт — спросить
+  const leave = () => {
+    if (draftOpen.current) confirmAction('Черновик со скрина не подтверждён — правки пропадут, в сверку ничего не добавится. Уйти к списку объектов?', onBack);
+    else onBack();
+  };
 
   return (
     <View style={s.wrap} testID="job-screen">
-      <Button title="← Все объекты" kind="secondary" onPress={onBack} testID="job-back" />
+      <Button title="← Все объекты" kind="secondary" onPress={leave} testID="job-back" />
 
       <Card title={job.title || 'Объект без названия'}>
         <Text style={s.steps}>{prog.steps.map(x => `${x.done ? '✓' : '○'} ${x.label}`).join('   ')}</Text>
@@ -211,6 +256,13 @@ export function JobScreen({ job, onJob, onBack, onDelete }: Props) {
         <PhotoGrid photos={photos} onDelete={onDeletePhoto} empty="Пока нет фото. «До», «после», шильдик, щиток — что нужно офису." />
         <Text style={s.sub}>Скрин заказа</Text>
         <PhotoGrid photos={orders} onDelete={onDeletePhoto} empty="Пока нет скрина заказа. Сделайте скриншот заказа в Orcatec и добавьте его сюда." />
+        <OrderOcrPanel
+          orders={orders}
+          itemNames={work.items.map(i => i.name)}
+          addSample={addSample}
+          onConfirm={onOrderConfirm}
+          onDraft={open => { draftOpen.current = open; }}
+        />
       </Card>
 
       <Text style={s.h}>{`3. Сверка заказа и трака · ${sum.ok} ок, ${sum.bad} проблем из ${sum.items}`}</Text>
@@ -282,9 +334,22 @@ export function JobScreen({ job, onJob, onBack, onDelete }: Props) {
       <Text style={s.h}>6. Итог</Text>
       <Card>
         <Text style={s.sumLine} testID="job-summary">
-          {`Фото: ${photos.length} · скрин заказа: ${orders.length} · сверка: ${sum.ok} ок, ${sum.bad} проблем, ${unchecked.length} не проверено · вопросы открыты: ${openQ.length} · этапы: ${sum.checksDone}/${sum.checksTotal}`}
+          {`Фото: ${photos.length} · скрин заказа: ${realOrders.length}${orders.length > realOrders.length ? ' (+ пример)' : ''} · сверка: ${sum.ok} ок, ${sum.bad} проблем, ${unchecked.length} не проверено · вопросы открыты: ${openQ.length} · этапы: ${sum.checksDone}/${sum.checksTotal}`}
         </Text>
-        {orders.length === 0 ? <Notice kind="warn" text="Нет скрина заказа — офис не увидит, что было в заказе." /> : null}
+        {realOrders.length === 0 ? (
+          <Notice kind="warn" text={orders.length ? 'Нет скрина настоящего заказа (есть только вымышленный ПРИМЕР) — офис не увидит, что было в заказе.' : 'Нет скрина заказа — офис не увидит, что было в заказе.'} />
+        ) : null}
+        <View style={[s.short, short.length ? s.shortBad : null]} testID="job-shortage">
+          <Text style={[s.shortTitle, short.length ? { color: colors.warnText } : null]}>Недостача по заказу</Text>
+          {short.length ? short.map(x => <Text key={x.id} style={s.shortLine} testID={`shortage-${x.id}`}>{`• ${shortageText(x)}`}</Text>) : (
+            <Text style={s.shortNone}>
+              {work.items.length === 0 ? 'Сверка пуста — добавьте позиции вручную или «Разобрать» скрин заказа.'
+                : waitTruck.length ? `Пока не видно: впишите «В траке» в «3. Сверка» (не вписано у ${waitTruck.length}).`
+                : 'Недостачи нет — по вписанным количествам всё на месте.'}
+            </Text>
+          )}
+          {short.length && waitTruck.length ? <Text style={s.shortNone}>{`Ещё не вписано «В траке» у ${waitTruck.length}.`}</Text> : null}
+        </View>
         {bad.length ? <Notice kind="warn" text={`Не хватает / проблемы: ${bad.map(i => i.name).join('; ')}`} /> : null}
         {openQ.length ? <Notice kind="info" text={`Открытые вопросы: ${openQ.map(q => q.text).join('; ')}`} /> : null}
         {openChecks.length ? <Notice kind="info" text={`Не отмечено этапов: ${openChecks.length}`} /> : (
@@ -303,7 +368,7 @@ export function JobScreen({ job, onJob, onBack, onDelete }: Props) {
         {reportMsg ? <Notice kind={reportMsg.ok ? 'ok' : 'warn'} text={reportMsg.text} /> : null}
       </Card>
 
-      <Button title="← Все объекты" kind="secondary" onPress={onBack} />
+      <Button title="← Все объекты" kind="secondary" onPress={leave} />
       <Button title="Удалить объект" kind="secondary" onPress={() => confirmAction(`Удалить объект «${job.title}» вместе с фото? Вернуть будет нельзя.`, () => onDelete(job))} testID="job-delete" />
     </View>
   );
@@ -317,6 +382,11 @@ const s = StyleSheet.create({
   steps: { fontSize: font.small, fontWeight: '700', color: colors.infoText, backgroundColor: colors.infoBg, borderRadius: radius.sm, padding: space.sm, overflow: 'hidden' },
   sumLine: { fontSize: font.small, color: colors.text, lineHeight: font.small * 1.4, fontWeight: '700' },
   itemWrap: { gap: space.xs },
+  short: { gap: space.xs, borderRadius: radius.sm, padding: space.md, backgroundColor: colors.infoBg },
+  shortBad: { backgroundColor: colors.warnBg, borderWidth: 2, borderColor: colors.warnText },
+  shortTitle: { fontSize: font.large, fontWeight: '800', color: colors.infoText },
+  shortLine: { fontSize: font.body, fontWeight: '800', color: colors.warnText, lineHeight: font.body * 1.35 },
+  shortNone: { fontSize: font.small, fontWeight: '700', color: colors.infoText },
   row: { flexDirection: 'row', gap: space.sm },
   cell: { flex: 1 },
 });
