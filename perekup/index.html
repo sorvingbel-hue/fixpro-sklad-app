@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Перекуп</title>
-<meta name="description" content="Брать или не брать вещь для перепродажи на eBay, за сколько, и склад купленного. Данные только на телефоне.">
+<meta name="description" content="Брать или не брать вещь для перепродажи на eBay, за сколько, склад купленного и учёт для налогов. Данные только на телефоне.">
 <meta name="robots" content="noindex, nofollow">
 <meta name="theme-color" content="#1F5C4E">
 <meta property="og:type" content="website">
@@ -114,7 +114,7 @@
           <span class="lbl">Мили за вещью (туда и обратно)</span>
           <input name="miles" inputmode="decimal" placeholder="пусто = не ездил">
         </label>
-        <p class="note">Ставка за милю и налог покупателя — в «Настройках».</p>
+        <p class="note">Ставка за милю — из реестра правил («Учёт»), налог покупателя — в «Настройках».</p>
       </details>
 
       <label class="field card">
@@ -138,7 +138,12 @@
     <div id="stock-root"></div>
   </section>
 
-  <!-- ЭКРАН 3: настройки -->
+  <!-- ЭКРАН 3: учёт для налогов (поездки, расходы, сводка за год, реестр правил) -->
+  <section class="screen" id="screen-ledger" data-screen="ledger" hidden>
+    <div id="ledger-root"></div>
+  </section>
+
+  <!-- ЭКРАН 4: настройки -->
   <section class="screen" id="screen-settings" data-screen="settings" hidden>
     <div id="settings-root"></div>
   </section>
@@ -149,6 +154,7 @@
 <nav class="tabs" aria-label="Разделы">
   <a href="#eval" data-tab="eval"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h10l6 6v10H4z M14 4v6h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M8 14h8M8 17h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>Оценить</span></a>
   <a href="#stock" data-tab="stock"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9l9-5 9 5v11H3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M8 20v-6h8v6" fill="none" stroke="currentColor" stroke-width="2"/></svg><span>Склад</span></a>
+  <a href="#ledger" data-tab="ledger"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M9 8h6M9 12h6M9 16h3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>Учёт</span></a>
   <a href="#settings" data-tab="settings"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>Настройки</span></a>
 </nav>
 

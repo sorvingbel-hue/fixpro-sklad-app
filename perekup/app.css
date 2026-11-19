@@ -119,8 +119,9 @@ details.more[open] summary::before{content:"−"}
   border-radius:16px;border:2px solid;padding:10px 14px;font-weight:900;font-size:18px;text-align:left;display:flex;justify-content:space-between;gap:10px;box-shadow:0 6px 20px rgba(0,0,0,.12);cursor:pointer}
 
 /* вкладки */
-.tabs{position:fixed;left:0;right:0;bottom:0;z-index:30;background:#fff;border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(3,1fr);padding:0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
-.tabs a{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:var(--tabs-h);color:var(--muted);text-decoration:none;font-weight:800;font-size:16px}
+.tabs{position:fixed;left:0;right:0;bottom:0;z-index:30;background:#fff;border-top:1px solid var(--line);display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,.85fr) minmax(0,.85fr) minmax(0,1.25fr);padding:0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+.tabs a{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:var(--tabs-h);min-width:0;color:var(--muted);text-decoration:none;font-weight:800;font-size:16px;letter-spacing:-.01em}
+.tabs a span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .tabs svg{width:28px;height:28px}
 .tabs a[aria-current="page"]{color:var(--main)}
 .tabs a[aria-current="page"] svg{background:var(--soft);border-radius:10px;padding:2px;width:44px}
@@ -168,7 +169,7 @@ details.more[open] summary::before{content:"−"}
 /* нижняя шторка с формой шага */
 .sheet-wrap{position:fixed;inset:0;z-index:50;display:flex;align-items:flex-end;justify-content:center}
 .sheet-scrim{position:absolute;inset:0;background:rgba(20,30,27,.45)}
-.sheet{position:relative;width:100%;max-width:640px;max-height:92vh;max-height:92dvh;overflow:auto;background:var(--bg);border-radius:24px 24px 0 0;padding:16px max(16px, env(safe-area-inset-right)) calc(20px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));display:flex;flex-direction:column;gap:12px;overscroll-behavior:contain}
+.sheet{position:relative;width:100%;max-width:640px;max-height:92%;overflow:auto;background:var(--bg);border-radius:24px 24px 0 0;padding:16px max(16px, env(safe-area-inset-right)) calc(20px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));display:flex;flex-direction:column;gap:12px;overscroll-behavior:contain}
 .sheet-head{display:flex;align-items:center;gap:10px}
 .sheet-head h2{flex:1}
 .x{width:48px;height:48px;border-radius:50%;border:0;background:var(--soft);font-size:20px;font-weight:900;cursor:pointer}
@@ -200,3 +201,25 @@ details.more[open] summary::before{content:"−"}
 @media (prefers-reduced-motion:no-preference){
   .btn,.chip,.seg span{transition:background-color .12s ease,border-color .12s ease}
 }
+
+/* учёт для налогов */
+.quick{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.unv{display:inline-block;border-radius:999px;padding:0 8px;font-size:16px;font-weight:800;background:var(--offer-bg);border:1px solid var(--offer-line);color:var(--offer);white-space:nowrap}
+.src{display:inline-flex;align-items:center;min-height:48px;min-width:48px;padding:0 6px;color:var(--main);font-weight:800;text-decoration:underline}
+.rules{display:flex;flex-direction:column;gap:10px}
+.rule{padding:12px;gap:8px}
+.rule-h{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 10px}
+.sumcard h3{margin-top:6px}
+.smeta tr.total.big td{font-size:22px;border-top:2px solid var(--line-strong);padding-top:10px}
+.fees-box{padding:12px;gap:10px}
+.fees-box h3{font-size:18px}
+.item-title .unv{font-size:16px}
+/* кнопка «Сохранить» в быстрых формах всегда видна внизу шторки (запись на ходу) */
+.sheet-foot{position:sticky;bottom:calc(-20px - env(safe-area-inset-bottom));margin:0 -16px calc(-20px - env(safe-area-inset-bottom));padding:10px 16px calc(14px + env(safe-area-inset-bottom));background:var(--bg);border-top:1px solid var(--line);display:flex;flex-direction:column;gap:10px;z-index:2}
+@media (max-width:360px){
+  .quick{grid-template-columns:1fr}
+  .tabs a{letter-spacing:-.03em}
+}
+/* поездка: «Сохранить» рядом с полем миль — над клавиатурой телефона */
+.miles-row{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:end}
+.miles-row .btn{min-height:56px;padding-left:18px;padding-right:18px}

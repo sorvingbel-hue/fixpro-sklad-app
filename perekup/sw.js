@@ -1,9 +1,9 @@
 // «Перекуп»: офлайн-кэш. Версию проставляет build.mjs по содержимому файлов —
 // новая версия = новый кэш, старый удаляется. Сеть нужна только для обновления самих файлов программы;
 // данные пользователя здесь не проходят (они в localStorage телефона).
-const VERSION = '280b30f5b7fd';
+const VERSION = '8a1be74b844f';
 const CACHE = 'perekup-' + VERSION;
-const ASSETS = ["./", "./index.html", "./app.css", "./app.js", "./logic.js", "./core/calc.js", "./manifest.webmanifest", "./icon.svg", "./icon-192.png", "./icon-512.png", "./apple-touch-icon.png"];
+const ASSETS = ["./", "./index.html", "./app.css", "./app.js", "./logic.js", "./ledger.js", "./core/calc.js", "./manifest.webmanifest", "./icon.svg", "./icon-192.png", "./icon-512.png", "./apple-touch-icon.png"];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
