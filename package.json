@@ -40,12 +40,13 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "expo lint",
-    "web:export": "expo export -p web",
+    "web:export": "expo export -p web && node scripts/sw-stamp.mjs dist",
     "test:sync": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON tests/sync.test.mjs",
     "test:import-v03": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON tests/import-v03.test.mjs",
     "typecheck": "tsc --noEmit",
     "test:work": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON tests/work-model.test.mjs",
-    "test:jobs": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON tests/jobs-model.test.mjs"
+    "test:jobs": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON tests/jobs-model.test.mjs",
+    "test:backup": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON tests/backup-model.test.mjs"
   },
   "private": true
 }

@@ -1,5 +1,6 @@
 // Раздел «Объекты» во вкладке «Смена»: «Начать смену / Продолжить».
 // Список объектов на этом устройстве → новый объект (минимум полей) или пример → экран объекта.
+// Под списком — «Копия и второй телефон» (копия файлом, напоминание «Сделайте копию»).
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
@@ -7,6 +8,7 @@ import { Button, Card, Field, Muted, Notice } from '@/components/ui';
 import { colors, font, radius, space } from '@/lib/theme';
 
 import { seedWork, summarize } from '../work/work-model';
+import { BackupCard, type BackupMsg } from './backup-card';
 import { JobScreen } from './job-screen';
 import { jobProgress, localTime, makeJob, sortJobs, upsertJob, validateJob, workForJob, type Job } from './jobs-model';
 import { deleteJobData, loadJobs, loadWork, saveJobs, saveWork } from './jobs-store';
@@ -22,6 +24,7 @@ export function JobsSection({ onTop }: { onTop?: () => void }) {
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [progress, setProgress] = useState<Record<string, ReturnType<typeof summarize>>>({});
   const [persisted, setPersisted] = useState<boolean | null>(null);
+  const [backupMsg, setBackupMsg] = useState<BackupMsg>(null);
   const inApp = inAppBrowser();
   const ref = useRef<Job[]>([]);
 
@@ -44,8 +47,15 @@ export function JobsSection({ onTop }: { onTop?: () => void }) {
     return saveJobs(next);
   }, []);
 
+  // Загрузили копию: перечитать список; если добавились объекты — к началу, чтобы их было видно
+  async function onRestored(added: number) {
+    await refresh();
+    if (added) onTop?.();
+  }
+
   function openJob(id: string | null) {
     setOpenId(id);
+    setBackupMsg(null);
     onTop?.();
   }
 
@@ -99,6 +109,7 @@ export function JobsSection({ onTop }: { onTop?: () => void }) {
               </Card>
             );
           })}
+          <BackupCard jobs={jobs} onRestored={onRestored} msg={backupMsg} setMsg={setBackupMsg} />
         </>
       ) : (
         <Card title="Форман — помощник бригадира HVAC">
@@ -119,6 +130,7 @@ export function JobsSection({ onTop }: { onTop?: () => void }) {
         <Button title="Посмотреть пример (ДЕМО)" kind="secondary" onPress={() => void create(true)} testID="new-example" />
       ) : null}
       {msg ? <Notice kind={msg.ok ? 'ok' : 'warn'} text={msg.text} /> : null}
+      {!jobs.length ? <BackupCard jobs={jobs} onRestored={onRestored} msg={backupMsg} setMsg={setBackupMsg} /> : null}
 
       {inApp ? (
         <Notice kind="warn" text={`Ссылка открыта внутри ${inApp}. У него своё хранилище — данные могут пропасть. Откройте ссылку в Safari или Chrome (меню «…» → «Открыть в браузере»).`} testID="inapp-warn" />
@@ -127,6 +139,7 @@ export function JobsSection({ onTop }: { onTop?: () => void }) {
         <Card title="Чтобы данные не пропали">
           <Text style={s.list}>{'iPhone: кнопка «Поделиться» → «На экран „Домой“». Открывайте «Форман» с этой иконки.\nAndroid: меню ⋮ → «Добавить на главный экран».'}</Text>
           <Muted>Без этого Safari может сам стереть данные сайта, если неделю не заходить. Данные хранятся только на этом телефоне.</Muted>
+          <Muted>У иконки на экране «Домой» может быть своё хранилище, отдельно от Safari. Если с иконки объектов не видно — в Safari нажмите «Сохранить копию», а с иконки — «Загрузить копию».</Muted>
           {persisted === true ? <Notice kind="ok" text="Браузер обещал не стирать данные сам." /> : null}
         </Card>
       ) : null}

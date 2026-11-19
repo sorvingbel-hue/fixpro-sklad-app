@@ -19,6 +19,12 @@ export async function photoUrl(_id: string, _size: 'thumb' | 'full'): Promise<st
 
 export async function deletePhotos(_ids: string[]): Promise<void> {}
 
+// Копия файлом — только в веб-версии
+export async function photoDataUrls(ids: string[]): Promise<{ urls: Record<string, string>; missing: number }> {
+  return { urls: {}, missing: ids.length };
+}
+export async function restorePhoto(_id: string, _dataUrl: string): Promise<'written' | 'exists' | 'fail'> { return 'fail'; }
+
 export async function storageInfo(): Promise<{ usedMB: number; quotaMB: number } | null> {
   return null;
 }
