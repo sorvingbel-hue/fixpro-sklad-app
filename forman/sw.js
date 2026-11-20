@@ -31,15 +31,15 @@
  *   })()));
  * Браузер проверяет sw.js мимо кэша (updateViaCache: 'none') при каждом открытии с сетью — выключится сразу.
  */
-const VERSION = 'd8eac664e1e5';
+const VERSION = 'f83c4959d3c5';
 const PRECACHE = [
  "./",
- "_expo/static/js/web/__common-59f1fdecafbb130cd9b29803732cad78.js",
+ "_expo/static/js/web/__common-70fc31875a9f96331df1ccc59a058747.js",
  "_expo/static/js/web/__expo-metro-runtime-ed4c1cfa6193d76fc294130e42bd1916.js",
  "_expo/static/js/web/_layout-8dc4e99c503f41e6ef596fc1330b8f50.js",
  "_expo/static/js/web/_layout-e4b3e3f1d5e33297d71b0e3417c10bd3.js",
- "_expo/static/js/web/entry-a08b3f24f27adfacc273b87e4526078b.js",
- "_expo/static/js/web/index-66504d83de1be72ff62f8ab1c46739f7.js",
+ "_expo/static/js/web/entry-8c78f6b79d8847a34cd14226cdcb37b5.js",
+ "_expo/static/js/web/index-16d04db84ed7d46185bf16cfb0d2a49b.js",
  "_expo/static/js/web/laws-7e2cfc427e663f1751f4de831a5001d3.js",
  "_expo/static/js/web/library-877a6175fbb5cd1001afc7253c161a38.js",
  "_expo/static/js/web/more-172f8fe94b1c17efcf1a391142ec63dd.js",
