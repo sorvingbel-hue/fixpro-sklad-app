@@ -208,12 +208,14 @@ export async function restorePhoto(id: string, dataUrl: string): Promise<'writte
 
 const urls = new Map<string, string>();
 
-export async function photoUrl(id: string, size: 'thumb' | 'full'): Promise<string | null> {
+// size 'ocr' — копия скрина заказа для распознавания (во всю ширину скрина, длинный скрин читается при увеличении);
+// нет её (фото, старый скрин, восстановленный из копии файлом) — полная 1600 px
+export async function photoUrl(id: string, size: 'thumb' | 'full' | 'ocr'): Promise<string | null> {
   const key = `${id}:${size}`;
   const have = urls.get(key);
   if (have) return have;
   try {
-    const b = await tx<Blob>('readonly', s => s.get(key));
+    const b = (await tx<Blob>('readonly', s => s.get(key))) ?? (size === 'ocr' ? await tx<Blob>('readonly', s => s.get(`${id}:full`)) : undefined);
     if (!b) return null;
     const u = URL.createObjectURL(b);
     urls.set(key, u);
@@ -228,7 +230,7 @@ export async function deletePhotos(ids: string[]): Promise<void> {
   try {
     await tx('readwrite', s => { for (const id of ids) { s.delete(`${id}:full`); s.delete(`${id}:thumb`); s.delete(`${id}:ocr`); } });
   } catch { /* не удалилось — останется мусор в хранилище, экран не ломаем */ }
-  for (const id of ids) for (const k of [`${id}:full`, `${id}:thumb`]) {
+  for (const id of ids) for (const k of [`${id}:full`, `${id}:thumb`, `${id}:ocr`]) {
     const u = urls.get(k);
     if (u) { URL.revokeObjectURL(u); urls.delete(k); }
   }

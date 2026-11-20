@@ -12,11 +12,11 @@ import { exportText } from '../training/share';
 import type { WorkV03Doc } from '../work/import-v03';
 import {
   addItem, addOrderItems, addQuestion, addTeam, buildWorkReport, ITEMS_MAX, quantity, QUESTIONS_MAX, removeItem, removeQuestion,
-  removeTeam, SAMPLE_SOURCE, setCheck, setItem, setQuestion, setTeam, shortages, shortageText, summarize, TEAM_MAX, verdict,
+  removeTeam, SAMPLE_SOURCE, setCheck, setItem, setOrderQty, setQuestion, setTeam, shortages, shortageText, summarize, TEAM_MAX, verdict,
 } from '../work/work-model';
 import { ItemCard, TeamCard } from '../work/work-section';
 import {
-  addPhotos, buildJobHeader, jobProgress, newId, patchJob, PHOTOS_MAX, removePhoto, reportFileName, validateJob,
+  addPhotos, buildJobHeader, jobProgress, newId, patchJob, PHOTOS_MAX, removePhoto, reportFileName, setPhotoKind, validateJob,
   type Job, type JobPhoto, type PhotoKind,
 } from './jobs-model';
 import { loadWork, saveWork } from './jobs-store';
@@ -122,6 +122,16 @@ export function JobScreen({ job, onJob, onBack, onDelete }: Props) {
     });
   }
 
+  // Тип у миниатюры: фото объекта ↔ скрин заказа (добавили не той кнопкой)
+  function onKind(p: JobPhoto, kind: PhotoKind) {
+    void saveJob(setPhotoKind(job, p.id, kind)).then(ok => {
+      setShareReady(null);
+      setPhotoMsg(ok
+        ? { ok: true, text: kind === 'order' ? 'Перенесено в «Скрин заказа» — теперь его можно разобрать (кнопка «Разобрать» ниже).' : 'Перенесено в «Фото объекта» — это просто вложение, разбирать его не будем.' }
+        : { ok: false, text: 'Не удалось сохранить изменение.' });
+    });
+  }
+
   function reportText(now: Date): string | null {
     const d = latest.current;
     if (!d) return null;
@@ -150,14 +160,20 @@ export function JobScreen({ job, onJob, onBack, onDelete }: Props) {
     return { ok: true, photo };
   }
 
-  // «Подтвердить и добавить в сверку» в черновике: только здесь сверка меняется
-  function onOrderConfirm(rows: { name: string; qty: number | null; unit: string }[], sample: boolean) {
+  // «Подтвердить и добавить в сверку» в черновике: только здесь сверка меняется.
+  // add — новые позиции; replace — «заменить количество» у позиций, которые уже есть (повторный разбор, второй скрин)
+  function onOrderConfirm(p: { add: { name: string; qty: number | null; unit: string }[]; replace: { id: string; qty: number }[] }, sample: boolean) {
     const cur = latest.current;
-    if (!cur) return { added: 0, overLimit: rows.length };
+    if (!cur) return { added: 0, replaced: 0, overLimit: p.add.length };
+    let doc = cur, replaced = 0;
+    for (const r of p.replace) {
+      const next = setOrderQty(doc, r.id, r.qty);
+      if (next !== doc) { doc = next; replaced++; }
+    }
     const base = newId('oi');
-    const res = addOrderItems(cur, rows, k => `${base}-${k}`, sample ? SAMPLE_SOURCE : undefined);
-    if (res.added) update(() => res.doc);
-    return { added: res.added, overLimit: res.overLimit };
+    const res = addOrderItems(doc, p.add, k => `${base}-${k}`, sample ? SAMPLE_SOURCE : undefined);
+    if (res.added || replaced) update(() => res.doc);
+    return { added: res.added, replaced, overLimit: res.overLimit };
   }
 
   async function onReport() {
@@ -244,21 +260,28 @@ export function JobScreen({ job, onJob, onBack, onDelete }: Props) {
       <Card>
         {PHOTOS_SUPPORTED ? (
           <>
-            <Button title="📷  Сделать фото" onPress={() => onPick('camera', 'photo')} disabled={busy} testID="pick-camera" />
-            <Button title="🖼  Фото из галереи" kind="secondary" onPress={() => onPick('gallery', 'photo')} disabled={busy} testID="pick-gallery" />
-            <Button title="🧾  Скрин заказа (Orcatec)" kind="secondary" onPress={() => onPick('gallery', 'order')} disabled={busy} testID="pick-order" />
+            {/* Две разные кнопки: фото объекта — просто вложение; скрин заказа — его можно разобрать.
+                Фото — без «только камера»: телефон сам предложит «Снять фото» или «Медиатека». */}
+            <View style={s.pick}>
+              <Button title="📷  Фото объекта — просто вложение" onPress={() => onPick('gallery', 'photo')} disabled={busy} testID="pick-camera" />
+              <Muted>«До», «после», шильдик, щиток. Снять или выбрать из галереи. Не разбирается — уходит в отчёт фотографией.</Muted>
+            </View>
+            <View style={s.pick}>
+              <Button title="🧾  Скрин заказа — можно разобрать" onPress={() => onPick('gallery', 'order')} disabled={busy} testID="pick-order" />
+              <Muted>Скриншот заказа (Orcatec). Кнопка «Разобрать» прочитает позиции и количества прямо на телефоне.</Muted>
+            </View>
             {busy ? <Notice kind="info" text="Жду выбор и сжимаю фото…" /> : null}
             <Muted>{PHOTO_WHERE}</Muted>
           </>
         ) : <Notice kind="info" text={PHOTO_WHERE} />}
         {photoMsg ? <Notice kind={photoMsg.ok ? 'ok' : 'warn'} text={photoMsg.text} testID="photo-msg" /> : null}
-        <Text style={s.sub}>Фото с объекта</Text>
-        <PhotoGrid photos={photos} onDelete={onDeletePhoto} empty="Пока нет фото. «До», «после», шильдик, щиток — что нужно офису." />
-        <Text style={s.sub}>Скрин заказа</Text>
-        <PhotoGrid photos={orders} onDelete={onDeletePhoto} empty="Пока нет скрина заказа. Сделайте скриншот заказа в Orcatec и добавьте его сюда." />
+        <Text style={s.sub}>{`📷 Фото объекта — вложения · ${photos.length}`}</Text>
+        <PhotoGrid photos={photos} onDelete={onDeletePhoto} onKind={onKind} empty="Пока нет фото. «До», «после», шильдик, щиток — что нужно офису." />
+        <Text style={s.sub}>{`🧾 Скрин заказа — можно разобрать · ${orders.length}`}</Text>
+        <PhotoGrid photos={orders} onDelete={onDeletePhoto} onKind={onKind} empty="Пока нет скрина заказа. Сделайте скриншот заказа в Orcatec и добавьте его сюда." />
         <OrderOcrPanel
           orders={orders}
-          itemNames={work.items.map(i => i.name)}
+          items={work.items.map(i => ({ id: i.id, name: i.name, qty: quantity(i.required), actual: quantity(i.actual), unit: i.unit }))}
           addSample={addSample}
           onConfirm={onOrderConfirm}
           onDraft={open => { draftOpen.current = open; }}
@@ -389,4 +412,5 @@ const s = StyleSheet.create({
   shortNone: { fontSize: font.small, fontWeight: '700', color: colors.infoText },
   row: { flexDirection: 'row', gap: space.sm },
   cell: { flex: 1 },
+  pick: { gap: space.xs, padding: space.sm, borderRadius: radius.sm, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.bg },
 });

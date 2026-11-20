@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 
 import {
-  groupWordsToLines, nameKey, parseOrderLines, planConfirm, QTY_CONF_MIN, rowQty, toRows,
+  groupWordsToLines, nameKey, parseOrderLines, planConfirm, QTY_CONF_MIN, rowQty, toRows, TRAIL_NOTE, COL_NOTE, orphanNumbers,
 } from '../src/features/jobs/order-parse.ts';
 
 let n = 0;
@@ -49,11 +49,15 @@ test('«6 ea», «6 pcs», «6pcs», «25 ft» в конце', () => {
   assert.equal(f.qty, 25); assert.equal(f.unit, 'фут'); assert.equal(f.name, 'Copper pipe 3/8');
 });
 
-test('число в конце строки после названия; с нумерацией списка', () => {
+// ИЗМЕНЕНО (правка dot «Filter MERV 13»): раньше одиночное число в конце строки считалось количеством всегда.
+// Теперь без «Qty/x/ea» и без колонки «Qty» это не доказано: число остаётся в названии, пусто и флаг.
+test('число в конце строки без «Qty» и без заголовка колонки — не количество; под заголовком «Items Qty» — количество', () => {
   const [a] = one('Thermostat T-01 2');
-  assert.equal(a.qty, 2); assert.equal(a.name, 'Thermostat T-01');
+  assert.equal(a.qty, null); assert.equal(a.name, 'Thermostat T-01 2'); assert.deepEqual(a.flags, ['qty']); assert.equal(a.note, TRAIL_NOTE);
   const [b] = one('3. Condensate pump 1');
-  assert.equal(b.qty, 1); assert.equal(b.name, 'Condensate pump');
+  assert.equal(b.qty, null); assert.equal(b.name, 'Condensate pump 1'); assert.deepEqual(b.flags, ['qty']);
+  const r = parseOrderLines([L('Items Qty'), L('Thermostat T-01 2'), L('3. Condensate pump 1')]).items;
+  assert.deepEqual(r.map(i => [i.name, i.qty, i.flags.join()]), [['Thermostat T-01', 2, ''], ['Condensate pump', 1, '']]);
 });
 
 test('явное «Qty» важнее длины в названии («25 ft … Qty 3»)', () => {
@@ -201,15 +205,18 @@ test('«Qty N» строкой ниже, а название кончается 
   // подряд несколько таких пар и обычные строки между ними
   const r = parseOrderLines(['Flex duct 8', 'Qty 12', 'Supply boot Qty 6', 'Disconnect 60', 'Qty 1', 'Total $10.00'].map(t => L(t)));
   assert.deepEqual(r.items.map(i => [i.name, i.qty]), [['Flex duct 8', 12], ['Supply boot', 6], ['Disconnect 60', 1]]);
-  // «Qty N» далеко от строки с числом (между ними другая строка) — не склеиваем
+  // «Qty N» далеко от строки с числом (между ними другая строка) — не склеиваем.
+  // ИЗМЕНЕНО: раньше «Thermostat T-01 2» давал 2; теперь число без доказательства — пусто и флаг, «2» в названии
   const far = parseOrderLines(['Thermostat T-01 2', 'Notes text here', 'Qty 5'].map(t => L(t)));
-  assert.equal(far.items.find(i => i.name.startsWith('Thermostat'))?.qty, 2);
+  const th = far.items.find(i => i.name.startsWith('Thermostat'));
+  assert.equal(th?.qty, null); assert.equal(th.name, 'Thermostat T-01 2'); assert.deepEqual(th.flags, ['qty']);
 });
 
 test('скрин с явным «Qty»: строка с числом в конце без «Qty» — пусто и флаг, число остаётся в названии', () => {
   const r = parseOrderLines(['Supply boot Qty 6', 'Wire nuts x10', 'Filter MERV 13', 'Breaker 2 pole 30', 'Copper elbow 4 ea'].map(t => L(t)));
   const merv = r.items.find(i => i.name === 'Filter MERV 13');
-  assert.ok(merv); assert.equal(merv.qty, null); assert.deepEqual(merv.flags, ['qty']); assert.match(merv.note, /без «Qty»/);
+  // ИЗМЕНЕНО: текст причины — «число в конце может быть частью названия — проверь» (было «…без «Qty»…»)
+  assert.ok(merv); assert.equal(merv.qty, null); assert.deepEqual(merv.flags, ['qty']); assert.equal(merv.note, TRAIL_NOTE);
   const br = r.items.find(i => i.name === 'Breaker 2 pole 30');
   assert.equal(br.qty, null);
   assert.equal(r.items.find(i => i.name === 'Supply boot').qty, 6);
@@ -270,6 +277,123 @@ test('«Qty 2.00», «Qty 1.00» — количество (не цена); «2.0
 test('«aty 4», «Qty» распознанное с ошибкой, — тоже «Qty»; название без мусора', () => {
   const [a] = one('Register boot elbow aty 4');
   assert.equal(a.qty, 4); assert.equal(a.name, 'Register boot elbow');
+});
+
+// ---------- Правка dot: число в конце строки — количество только при доказательстве ----------
+
+test('dot: «Filter MERV 13» одной строкой → название целиком, qty=null, флаг и причина', () => {
+  const r = parseOrderLines([L('Filter MERV 13')]);
+  assert.deepEqual(r.items.map(i => [i.name, i.qty, i.flags.join(), i.note]), [['Filter MERV 13', null, 'qty', TRAIL_NOTE]]);
+  assert.equal(TRAIL_NOTE, 'число в конце может быть частью названия — проверь');
+});
+
+test('dot: «Filter MERV 13 Qty 2» → 2; «Filter MERV 13 2» под «Description Qty» → 2 (явные количества не сломаны)', () => {
+  assert.deepEqual(one('Filter MERV 13 Qty 2').map(i => [i.name, i.qty, i.flags.join()]), [['Filter MERV 13', 2, '']]);
+  const r = parseOrderLines([L('Description Qty'), L('Filter MERV 13 2')]);
+  assert.deepEqual(r.items.map(i => [i.name, i.qty, i.flags.join()]), [['Filter MERV 13', 2, '']]);
+  assert.ok(r.dropped.some(d => d.raw === 'Description Qty' && d.why === 'заголовок'));
+});
+
+test('dot: «Breaker 2 pole 30» без заголовка → флаг, число в названии; явные маркеры на строке ниже — количество', () => {
+  assert.deepEqual(one('Breaker 2 pole 30').map(i => [i.name, i.qty, i.flags.join()]), [['Breaker 2 pole 30', null, 'qty']]);
+  for (const [a, b, q] of [['Filter MERV 13', 'x2', 2], ['Breaker 2 pole 30', '2 ea', 2], ['Filter MERV 13', 'Qty: 3', 3], ['Disconnect 60', '4 pcs', 4]]) {
+    const r = parseOrderLines([L(a), L(b)]);
+    assert.deepEqual(r.items.map(i => [i.name, i.qty, i.flags.join()]), [[a, q, '']], `${a} / ${b}`);
+  }
+  // явные маркеры в строке — как раньше
+  for (const [s, q] of [['Filter MERV 13 x2', 2], ['Filter MERV 13 2 ea', 2], ['Filter MERV 13 Qty: 2', 2], ['Breaker 2 pole 30 2 pcs', 2]]) {
+    const [it] = one(s);
+    assert.equal(it.qty, q, s); assert.deepEqual(it.flags, [], s);
+  }
+});
+
+test('заголовок с «Total»/«Price» — это заголовок (не итог); «Qty» первым словом без рамок — число в конце не в колонке', () => {
+  const r = parseOrderLines([L('Description Qty Price Total'), L('Filter MERV 13 2')]);
+  assert.deepEqual(r.items.map(i => [i.name, i.qty]), [['Filter MERV 13 2', null]], 'Qty не последнее слово, а цены в строке нет — не доказано: число остаётся в названии');
+  assert.ok(r.dropped.some(d => d.raw === 'Description Qty Price Total' && d.why === 'заголовок'));
+  const q = parseOrderLines([L('Qty Description'), L('Filter MERV 13 2')]);
+  assert.equal(q.items[0].qty, null);
+  // скрин, где преобладают явные «Qty», — голое число в конце подозрительно и под заголовком (без рамок)
+  const m = parseOrderLines(['Items Qty', 'Supply boot Qty 6', 'Wire nuts x10', 'Filter MERV 13'].map(t => L(t)));
+  assert.deepEqual(m.items.map(i => [i.name, i.qty]), [['Supply boot', 6], ['Wire nuts', 10], ['Filter MERV 13', null]]);
+  // «Qty» отдельной строкой сразу под названием — размазанное количество этой строки, а не заголовок
+  const p = parseOrderLines([L('Condensate pump'), L('Qty')]);
+  assert.deepEqual(p.items.map(i => [i.name, i.qty, i.flags.join()]), [['Condensate pump', null, 'qty']]);
+});
+
+// Слова с рамками, как их отдаёт распознавание (groupWordsToLines): x — левый край, ширина ~22 px на знак, высота 40
+const BW = (text, x0, y0, conf = 95) => ({ text, confidence: conf, bbox: { x0, y0, x1: x0 + 22 * text.length, y1: y0 + 40 } });
+const row = (y, name, num, numX) => {
+  const ws = []; let x = 60;
+  for (const t of name.split(' ')) { ws.push(BW(t, x, y)); x += 22 * t.length + 14; }
+  if (num !== undefined) ws.push(BW(String(num), numX ?? x, y));
+  return ws;
+};
+
+test('по рамкам слов: число в колонке «Qty» — количество; «13» сразу после «MERV» (не в колонке) — флаг', () => {
+  const lines = groupWordsToLines([
+    BW('Description', 60, 100), BW('Qty', 1000, 100),
+    ...row(200, 'Filter MERV 13', 2, 1010),
+    ...row(300, 'Filter MERV 13'),             // количество в колонке не указано: «13» стоит у названия
+    ...row(400, 'Breaker 2 pole 30', 1, 1021),
+    ...row(500, 'Return grille 20x20', 12, 1000),
+  ]);
+  const r = parseOrderLines(lines);
+  assert.deepEqual(r.items.map(i => [i.name, i.qty, i.flags.join()]), [
+    ['Filter MERV 13', 2, ''], ['Filter MERV 13', null, 'qty'], ['Breaker 2 pole 30', 1, ''], ['Return grille 20x20', 12, ''],
+  ]);
+  assert.equal(r.items[1].note, TRAIL_NOTE);
+});
+
+test('по рамкам слов: заголовка нет — число в конце не доказано, даже если все строки «как колонка»', () => {
+  const r = parseOrderLines(groupWordsToLines([...row(200, 'Supply boot', 6, 1000), ...row(300, 'Filter MERV 13', 2, 1000), ...row(400, 'Flex duct', 3, 1000)]));
+  assert.deepEqual(r.items.map(i => [i.qty, i.flags.join()]), [[null, 'qty'], [null, 'qty'], [null, 'qty']]);
+  assert.deepEqual(r.items.map(i => i.name), ['Supply boot 6', 'Filter MERV 13 2', 'Flex duct 3']);
+});
+
+test('по рамкам слов: (в) колонка «уезжает» вбок (фото экрана с перекосом) — цепочка выровненных чисел под заголовком', () => {
+  const ws = [BW('Items', 60, 100), BW('Qty', 1000, 100)];
+  const names = ['Supply boot', 'Filter MERV 13', 'Flex duct', 'Wire nuts', 'Duct tape roll', 'Fan relay'];
+  names.forEach((nm, k) => ws.push(...row(200 + k * 100, nm, k + 2, 990 - k * 30))); // каждая строка на 30 px левее
+  const r = parseOrderLines(groupWordsToLines(ws));
+  assert.deepEqual(r.items.map(i => [i.name, i.qty]), names.map((nm, k) => [nm, k + 2]));
+  // число далеко от колонки и ни с чем не выровнено — не количество
+  const far = parseOrderLines(groupWordsToLines([BW('Items', 60, 100), BW('Qty', 1000, 100), ...row(200, 'Supply boot', 6, 600)]));
+  assert.deepEqual(far.items.map(i => [i.name, i.qty]), [['Supply boot 6', null]]);
+});
+
+test('по рамкам слов: в колонке «Qty» не цифра («3» прочитано как «a») — позиция с пустым количеством и флагом, не потеряна', () => {
+  const r = parseOrderLines(groupWordsToLines([BW('Description', 60, 100), BW('Qty', 1000, 100), ...row(200, 'Flex duct 8 in', 'a', 1030), ...row(300, 'Supply boot', 4, 1030)]));
+  assert.deepEqual(r.items.map(i => [i.name, i.qty, i.flags.join(), i.note ?? '']), [['Flex duct 8 in', null, 'qty', COL_NOTE], ['Supply boot', 4, '', '']]);
+  // то же слово не в колонке (обычное слово названия) — строка без количества, как раньше
+  const no = parseOrderLines(groupWordsToLines([BW('Description', 60, 100), BW('Qty', 1000, 100), ...row(200, 'Flex duct 8 in a')]));
+  assert.deepEqual(no.items, []);
+});
+
+test('строки распались (фото под углом): числа отдельно от названий — не количества, но посчитаны для предупреждения', () => {
+  const r = parseOrderLines(['Description', 'Qty', 'Return grille 20x20', '6', 'Filter MERV 13', '2', 'Breaker 2 pole 30', '> 1'].map(t => L(t)));
+  assert.deepEqual(r.items.map(i => [i.name, i.qty]), [['Filter MERV 13', null], ['Breaker 2 pole 30', null]], 'ни одного количества без доказательства');
+  assert.equal(orphanNumbers(r.dropped), 3);
+  assert.equal(orphanNumbers(parseOrderLines(['Fictional example text', 'Items Qty', 'Gas valve Qty 2'].map(t => L(t))).dropped), 0);
+});
+
+test('повторы: «уже есть в сверке» — по умолчанию «оставить»; «заменить количество» и «добавить отдельно» — только выбором', () => {
+  const ex = [{ id: 'i1', name: 'Return grille 20x20', qty: 8, actual: 4 }, { id: 'i2', name: 'Flex duct 8 in', qty: 3 }, { id: 'i3', name: 'Condensate pump', qty: 1 }];
+  const R = (key, name, qty) => ({ key, name, qty, unit: 'шт.', flags: [], raw: name, confidence: 95 });
+  const rows = [R('a', 'Return grille 20x20', '6'), R('b', 'FLEX duct 8 in', '5'), R('c', 'condensate pump', '1'), R('d', 'Wire nuts', '10'), R('e', 'Wire nuts', '10'), R('f', 'Supply boot', '')];
+  const def = planConfirm(rows, ex);
+  assert.deepEqual(def.keep.map(r => r.key), ['a', 'b', 'c'], 'по умолчанию совпавшие с позицией сверки — оставить как есть');
+  assert.deepEqual(def.add.map(r => r.key), ['d', 'f']);
+  assert.deepEqual(def.dupInDraft.map(r => r.key), ['e']);
+  assert.deepEqual(def.replace, []);
+  assert.deepEqual(def.noQty.map(r => r.key), ['f']);
+  const ch = planConfirm(rows, ex, { b: 'replace', c: 'add', e: 'add', a: 'keep' });
+  assert.deepEqual(ch.replace.map(x => [x.row.key, x.id, x.qty]), [['b', 'i2', 5]]);
+  assert.deepEqual(ch.add.map(r => r.key), ['c', 'd', 'e', 'f']);
+  assert.deepEqual(ch.keep.map(r => r.key), ['a']);
+  assert.deepEqual(ch.dupExisting.map(r => r.key), ['a', 'b', 'c']);
+  // «заменить» без количества в черновике — нечем заменять: остаётся как есть
+  assert.deepEqual(planConfirm([R('x', 'Flex duct 8 in', '')], ex, { x: 'replace' }).keep.map(r => r.key), ['x']);
 });
 
 console.log(`order-parse: ${n} проверок пройдено`);

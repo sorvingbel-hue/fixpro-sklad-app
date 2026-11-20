@@ -1,11 +1,22 @@
 // Разбор распознанного скрина заказа → черновик позиций на проверку бригадиру.
 // Формат №1: список позиций заказа, у строки есть количество: «Qty: 6», «Qty 6», «x6», «6 x», «6 ea», «6 pcs»,
-// число в конце строки после названия. Чистая логика без React Native: её проверяет tests/order-parse.test.mjs в Node.
+// число в колонке «Qty». Чистая логика без React Native: её проверяет tests/order-parse.test.mjs в Node.
 //
 // Главное правило: НЕ УГАДЫВАТЬ. Если цифры количества распознаны неуверенно (низкая уверенность слова,
 // буква вместо цифры: O/0, l/1/I, S/5, B/8, Z/2; цифра шире обычной — две цифры слились, «11» прочитано как «1»)
 // — qty = null и флаг «проверь количество». Пустое поле честнее неверной цифры: по нему бригадир сам посмотрит скрин.
 // Итоги, цены, адреса, телефоны — отбрасываются.
+//
+// Голое число в конце строки («Filter MERV 13», «Breaker 2 pole 30») — количество ТОЛЬКО при доказательстве:
+//  (а) явный маркер в строке или строкой ниже: «Qty 2», «Qty: 2», «x2», «2 ea/pcs/ft»;
+//  (б) на скрине выше есть заголовок колонки количества («Qty», «Quantity», «Кол-во») и число стоит в этой
+//      колонке по горизонтали (рамки слов из groupWordsToLines);
+//  (в) число выровнено по краю с числом соседней строки (до 3 строк), уже стоящим в этой колонке, — колонка
+//      чисел под заголовком (на фото экрана с перекосом колонка «уезжает» вбок постепенно).
+//  Без рамок слов (только текст) вместо (б)/(в): заголовок вида «Description Qty» («Qty» последним, слева —
+//  колонка названий) — число в конце строки стоит в этой колонке (если только на скрине не преобладают строки
+//  с явным «Qty»). Одинокое «Qty» без рамок ничего не доказывает. В приложении рамки слов есть всегда.
+// Без доказательства: число остаётся в названии, qty = null, флаг «проверь количество» и причина.
 
 export type OcrBox = { x0: number; y0: number; x1: number; y1: number };
 export type OcrSymbol = { text: string; confidence: number; bbox?: OcrBox };
@@ -37,8 +48,8 @@ export const DRAFT_MAX = 40;     // = ITEMS_MAX сверки
 export const FLAG_TEXT: Record<DraftFlag, string> = { qty: 'проверь количество', name: 'проверь название' };
 
 // t — текст, c — уверенность слова, d — наименьшая уверенность цифр этого слова (по знакам), если известна;
-// wide — цифра этого слова шире обычной на этом скрине (две цифры могли слиться в одну)
-type Tok = { t: string; c: number; d?: number; wide?: true };
+// wide — цифра этого слова шире обычной на этом скрине (две цифры могли слиться в одну); b — рамка слова на скрине
+type Tok = { t: string; c: number; d?: number; wide?: true; b?: OcrBox };
 
 // Уверенность цифр количества: отдельное число — по слову и по его цифрам (берём худшее); число, слитое
 // с буквами («x4», «6ea», «Qty:6»), — по цифрам: такое «слово» не из словаря, и его общая уверенность занижена.
@@ -55,6 +66,8 @@ const QTY_LIKE = new RegExp(`^[0-9${CONFUSABLE.replace('|', '\\|')}]+$`);
 const KEYWORD = /^(qty|qt[yv]|[o0qa]t[yv]|q[l1]y|quantity|qnty|кол-?во|кол\.?|количество)[:.#]?$/i;
 const KEYWORD_GLUED = /^(qty|quantity|кол-?во)[:.#]?(.+)$/i;
 const HEADER_WORDS = /^(items?|description|product|products|service|services|name|материал(ы)?|позиции|наименование|товар(ы)?)$/i;
+// Слова, которые бывают в строке-заголовке таблицы рядом с «Qty» («Description Qty Price Total»)
+const HEAD_VOCAB = /^(items?|description|desc|products?|services?|name|parts?|sku|materials?|материал(ы)?|позици[яи]|наименование|товар(ы)?|price|unit|units|rate|each|total|amount|cost|line|uom|цена|сумма|ед|no)$/i;
 
 const COUNT_UNITS: Record<string, string> = {
   ea: 'шт.', each: 'шт.', pc: 'шт.', pcs: 'шт.', piece: 'шт.', pieces: 'шт.', unit: 'шт.', units: 'шт.', 'шт': 'шт.', 'шт.': 'шт.',
@@ -128,7 +141,9 @@ function cleanName(toks: Tok[]): { name: string; conf: number } {
 }
 
 // tok — слово, из которого взято количество
-type Found = { qty: Qty; unit: string; name: Tok[]; qtyConf: number; kind: 'kw' | 'unit' | 'x' | 'trail'; keywordOnly?: boolean; tok?: Tok };
+// kind: kw — «Qty N»; unit — «N ea»; x — «xN»; trail — голое число в конце (нужно доказательство колонкой);
+// col — в колонке «Qty» стоит не число (цифра не прочиталась)
+type Found = { qty: Qty; unit: string; name: Tok[]; qtyConf: number; kind: 'kw' | 'unit' | 'x' | 'trail' | 'col'; keywordOnly?: boolean; tok?: Tok };
 
 // Найти количество в строке (по порядку надёжности шаблонов)
 function findQty(toks: Tok[]): Found | null {
@@ -237,7 +252,8 @@ function tokensOf(line: OcrLine, ref: DigitRef): Tok[] {
       const wide = parts.length === 1 && /\d/.test(w.text) && wordTooWide(w, ref);
       // слитая цифра — уверенность цифр 0: такое количество не берём (флаг), число в названии не трогаем
       const d = parts.length === 1 ? (wide ? 0 : digitConf(w)) : undefined;
-      return parts.map(t => ({ t, c: Number.isFinite(w.confidence) ? w.confidence : 0, ...(d !== undefined ? { d } : {}), ...(wide ? { wide: true as const } : {}) }));
+      const b = parts.length === 1 && w.bbox ? w.bbox : undefined;
+      return parts.map(t => ({ t, c: Number.isFinite(w.confidence) ? w.confidence : 0, ...(d !== undefined ? { d } : {}), ...(wide ? { wide: true as const } : {}), ...(b ? { b } : {}) }));
     })
     : line.text.trim().split(/\s+/).filter(Boolean).map(t => ({ t, c: Number.isFinite(line.confidence) ? line.confidence : 0 }));
   // «—» и «-» как отдельные слова — разделители; «×» → «x»
@@ -245,10 +261,39 @@ function tokensOf(line: OcrLine, ref: DigitRef): Tok[] {
 }
 
 const WIDE_NOTE = 'цифра шире обычной — возможно, слились две цифры («11» как «1»)';
-const TRAIL_NOTE = 'число в конце строки без «Qty» — может быть частью названия (MERV 13, 30 A)';
+export const TRAIL_NOTE = 'число в конце может быть частью названия — проверь';
+export const COL_NOTE = 'в колонке «Qty» не цифра (не прочиталась) — посмотри скрин';
 
-// Позиция черновика с тем, из чего она собрана (для склейки со строкой «Qty N» ниже и для проверки формата)
-type Built = { item: DraftItem; kind: Found['kind']; toks: Tok[]; raw: string; line: number };
+// ---------- Колонка количества: заголовок «Qty» и положение числа ----------
+// Заголовок: «Qty», «Items Qty», «Description Qty Price Total», «Наименование Кол-во» — без цифр, кроме слова
+// количества только слова шапки таблицы. box — рамка слова «Qty» (если известна), last — «Qty» последнее слово
+// после хотя бы одного слова шапки («Description Qty»: колонка названий слева, количества — справа).
+type Head = { line: number; box?: OcrBox; last: boolean };
+
+function qtyHeader(toks: Tok[], line: number): Head | null {
+  if (!toks.length || toks.length > 8 || toks.some(x => /\d/.test(x.t))) return null;
+  const k = toks.findIndex(x => KEYWORD.test(x.t));
+  if (k < 0) return null;
+  if (!toks.every((x, n) => { const w = trimPunct(x.t).replace(/[.#№]+$/, ''); return n === k || !w || HEAD_VOCAB.test(w); })) return null;
+  return { line, last: k > 0 && k === toks.length - 1, ...(toks[k].b ? { box: toks[k].b } : {}) };
+}
+
+const hgt = (b: OcrBox) => Math.max(1, b.y1 - b.y0);
+// (б) число по горизонтали в колонке заголовка «Qty» (с допуском в высоту строки: число бывает прижато к краю)
+function inColumn(num: OcrBox, head: OcrBox): boolean {
+  const tol = Math.max(hgt(num), hgt(head));
+  return Math.min(num.x1, head.x1 + tol) > Math.max(num.x0, head.x0 - tol);
+}
+// (в) два числа соседних строк в одной колонке: совпадает правый или левый край, или заметно перекрываются
+function aligned(a: OcrBox, b: OcrBox): boolean {
+  const tol = 0.8 * Math.max(hgt(a), hgt(b));
+  const ov = Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0);
+  return Math.abs(a.x1 - b.x1) <= tol || Math.abs(a.x0 - b.x0) <= tol || ov >= 0.5 * Math.min(a.x1 - a.x0, b.x1 - b.x0);
+}
+
+// Позиция черновика с тем, из чего она собрана (для склейки со строкой «Qty N» ниже и для проверки формата);
+// num — слово с числом в конце строки (правило «trail»), head — заголовок «Qty» выше этой строки
+type Built = { item: DraftItem; kind: Found['kind']; toks: Tok[]; raw: string; line: number; num?: Tok; head?: Head | null };
 
 function build(found: Found, nameToks: Tok[], raw: string): DraftItem | null {
   const { name, conf } = cleanName(nameToks);
@@ -266,10 +311,22 @@ export function parseOrderLines(lines: OcrLine[]): ParseResult {
   const built: Built[] = [];
   const dropped: Dropped[] = [];
   let pending: { toks: Tok[]; raw: string } | null = null; // строка-название без количества (количество — на следующей строке)
+  let head: Head | null = null; // последний заголовок колонки количества выше текущей строки
 
   lines.forEach((line, ln) => {
     const raw = (line.text ?? '').replace(/\s+/g, ' ').trim();
     if (!raw) return;
+    const all = tokensOf(line, ref);
+    // заголовок таблицы («Description Qty Price Total») — до проверки на итоги: в нём бывает слово «Total».
+    // Одно «Qty» сразу под строкой-названием — это её количество с размазанной цифрой, а не заголовок.
+    const h = qtyHeader(all, ln);
+    if (h && !(pending && all.length === 1)) {
+      if (pending) dropped.push({ raw: pending.raw, why: 'нет количества' });
+      dropped.push({ raw, why: 'заголовок' });
+      pending = null;
+      head = h;
+      return;
+    }
     const junk = JUNK.find(([re]) => re.test(raw));
     if (junk) {
       if (pending) dropped.push({ raw: pending.raw, why: 'нет количества' });
@@ -278,13 +335,21 @@ export function parseOrderLines(lines: OcrLine[]): ParseResult {
       return;
     }
 
-    const all = tokensOf(line, ref);
     const priceAt = all.map((x, k) => isPrice(x.t) && !keepAsQty(all, k));
     const hadPrice = priceAt.some(Boolean);
     const toks = all.filter((_, k) => !priceAt[k]);
     let found = findQty(toks);
     // в строке с ценой число в конце может быть куском цены — без явного «Qty/x/ea» не берём
     if (found && hadPrice && found.kind === 'trail') found = null;
+    // в колонке «Qty» (по рамкам слов) короткое «слово», но не число: «3» прочитано как «a» — это клетка количества,
+    // её не угадываем: позиция с пустым количеством и флагом (а не потерянная строка)
+    if (!found && !hadPrice && head?.box && toks.length >= 2) {
+      const last = toks[toks.length - 1];
+      const t = trimPunct(last.t);
+      if (last.b && t && t.length <= 3 && inColumn(last.b, head.box) && letterCount(toks.slice(0, -1).map(x => x.t).join(' ')) >= 2) {
+        found = { qty: { qty: null, unsure: true }, unit: 'шт.', name: toks.slice(0, -1), qtyConf: 0, kind: 'col', tok: last };
+      }
+    }
 
     if (!found) {
       if (letterCount(raw) >= 2 && !HEADER_WORDS.test(raw)) {
@@ -321,22 +386,37 @@ export function parseOrderLines(lines: OcrLine[]): ParseResult {
     if (found.keywordOnly && HEADER_WORDS.test(own.name)) { dropped.push({ raw, why: 'заголовок' }); return; }
     const it = build(found, found.name, raw);
     if (!it) { dropped.push({ raw, why: 'нет названия' }); return; }
-    built.push({ item: it, kind: found.kind, toks, raw, line: ln });
+    if (found.kind === 'col') it.note = COL_NOTE;
+    built.push({ item: it, kind: found.kind, toks, raw, line: ln, ...(found.kind === 'trail' ? { num: found.tok, head } : {}) });
   });
   if (pending) dropped.push({ raw: (pending as { raw: string }).raw, why: 'нет количества' });
 
-  // Скрин с явным количеством («Qty 6», «x4», «6 ea»): строка, где количество — просто число в конце, без «Qty»,
-  // скорее всего его не содержит («Filter MERV 13», «Breaker 2 pole 30»). Не угадываем: число остаётся
-  // в названии, количество пустое, флаг. Скрин, где у всех строк число в конце (колонка «Qty»), — берём как есть.
-  const explicit = built.filter(b => b.kind !== 'trail').length;
-  const trail = built.length - explicit;
-  if (explicit >= 2 && explicit > trail) {
-    for (const b of built) {
-      if (b.kind !== 'trail') continue;
-      const { name, conf } = cleanName(b.toks);
-      const flags: DraftFlag[] = ['qty', ...(conf < NAME_CONF_MIN ? ['name' as const] : [])];
-      b.item = { name, qty: null, unit: b.item.unit, confidence: Math.round(Math.max(0, Math.min(100, conf))), flags, raw: b.raw, note: TRAIL_NOTE };
+  // Число в конце строки без «Qty/x/ea» («Filter MERV 13», «Breaker 2 pole 30») — количество только при
+  // доказательстве колонкой «Qty» (см. начало файла). Склеенные со строкой «Qty N» ниже уже не «trail».
+  const trails = built.filter(b => b.kind === 'trail');
+  const proven = new Set<Built>();
+  // (б) число стоит в колонке заголовка «Qty»
+  for (const b of trails) if (b.head?.box && b.num?.b && inColumn(b.num.b, b.head.box)) proven.add(b);
+  // (в) колонка чисел: число выровнено с уже доказанным числом соседней строки (до 3 строк) под тем же заголовком
+  for (let grew = true; grew;) {
+    grew = false;
+    for (const b of trails) {
+      if (proven.has(b) || !b.head?.box || !b.num?.b) continue;
+      const nb = b.num.b;
+      if ([...proven].some(p => p.head === b.head && Math.abs(p.line - b.line) <= 3 && aligned(p.num!.b!, nb))) { proven.add(b); grew = true; }
     }
+  }
+  // без рамок слов (только текст): заголовок с «Qty» последним словом; но если на скрине преобладают строки
+  // с явным «Qty/x/ea», голое число в конце — скорее часть названия
+  const explicit = built.length - trails.length;
+  const mostlyExplicit = explicit >= 2 && explicit > trails.length;
+  for (const b of trails) if (b.head && (!b.head.box || !b.num?.b) && b.head.last && !mostlyExplicit) proven.add(b);
+  // не доказано: число остаётся в названии, количество пустое, флаг и причина
+  for (const b of trails) {
+    if (proven.has(b)) continue;
+    const { name, conf } = cleanName(b.toks);
+    const flags: DraftFlag[] = ['qty', ...(conf < NAME_CONF_MIN ? ['name' as const] : [])];
+    b.item = { name, qty: null, unit: 'шт.', confidence: Math.round(Math.max(0, Math.min(100, conf))), flags, raw: b.raw, note: TRAIL_NOTE };
   }
 
   const items: DraftItem[] = [];
@@ -346,6 +426,11 @@ export function parseOrderLines(lines: OcrLine[]): ParseResult {
   }
   return { items, dropped };
 }
+
+// Числа отдельной строкой, без названия («6», «> 1»): строки скрина распались (фото экрана под углом) —
+// количества не взяты; черновик об этом предупреждает, чтобы недостающие строки не потерялись молча
+export const orphanNumbers = (dropped: Dropped[]): number =>
+  dropped.filter(d => d.why === 'нет количества' && /^[^A-Za-zА-Яа-яЁё]{0,3}\d{1,3}[^A-Za-zА-Яа-яЁё]{0,3}$/.test(d.raw.trim())).length;
 
 // Слова распознавания → строки по положению на скрине. Распознавание может разрезать строку на колонки
 // (название слева, «Qty 6» справа) — собираем обратно по вертикали, слева направо.
@@ -394,22 +479,52 @@ export function rowQty(s: string): number | null {
   return Number.isFinite(n) && n >= 0 && n <= 99999 ? n : null;
 }
 
-export type ConfirmPlan = { add: DraftRow[]; dupExisting: DraftRow[]; dupInDraft: DraftRow[]; empty: DraftRow[]; noQty: DraftRow[] };
+// ---------- Повторы: повторный разбор того же скрина, два перекрывающихся скрина одного заказа ----------
+// Позиция сверки, с которой сравниваем строку черновика (по названию без учёта регистра и знаков)
+export type ExistingItem = { id: string; name: string; qty: number | null; actual?: number | null; unit?: string };
+// Что сделать со строкой, которая уже есть в сверке: оставить как есть (по умолчанию), заменить количество
+// в сверке на количество из черновика, добавить отдельной позицией. Второй раз в черновике: 'keep' — не добавлять.
+export type DupChoice = 'keep' | 'replace' | 'add';
+
+export function findExisting(name: string, existing: ExistingItem[]): ExistingItem | null {
+  const k = nameKey(name);
+  return k ? existing.find(e => nameKey(e.name) === k) ?? null : null;
+}
+
+export type ConfirmPlan = {
+  add: DraftRow[];                                       // добавить в сверку (новые и «добавить отдельно»)
+  replace: { row: DraftRow; id: string; qty: number }[]; // «заменить количество» у позиции сверки id
+  keep: DraftRow[];                                      // уже есть в сверке — оставлено как есть
+  dupExisting: DraftRow[];                               // все строки, совпавшие с позицией сверки (любой выбор)
+  dupInDraft: DraftRow[];                                // второй раз в этом черновике — не добавлены
+  empty: DraftRow[];                                     // без названия — не добавлены
+  noQty: DraftRow[];                                     // добавляются без количества
+};
 
 // Что будет при «Подтвердить»: пустые строки не добавляются; повторы (уже в сверке или дважды в черновике)
-// показываются человеку — молча не задваиваем.
-export function planConfirm(rows: DraftRow[], existingNames: string[]): ConfirmPlan {
-  const have = new Set(existingNames.map(nameKey).filter(Boolean));
+// молча не задваиваются: по умолчанию «оставить», заменить или добавить отдельно — только явным выбором человека.
+// existing — позиции сверки (строка = только название, как раньше); choice — выбор по ключу строки черновика.
+export function planConfirm(rows: DraftRow[], existing: (ExistingItem | string)[], choice: Record<string, DupChoice> = {}): ConfirmPlan {
+  const ex = existing.map(e => (typeof e === 'string' ? { id: '', name: e, qty: null } : e));
   const seen = new Set<string>();
-  const plan: ConfirmPlan = { add: [], dupExisting: [], dupInDraft: [], empty: [], noQty: [] };
+  const plan: ConfirmPlan = { add: [], replace: [], keep: [], dupExisting: [], dupInDraft: [], empty: [], noQty: [] };
   for (const r of rows) {
     const k = nameKey(r.name);
     if (!k) { plan.empty.push(r); continue; }
-    if (have.has(k)) plan.dupExisting.push(r);
-    else if (seen.has(k)) plan.dupInDraft.push(r);
-    else plan.add.push(r);
+    const c = choice[r.key] ?? 'keep';
+    const have = findExisting(r.name, ex);
+    const q = rowQty(r.qty);
+    if (have) {
+      plan.dupExisting.push(r);
+      if (c === 'add') plan.add.push(r);
+      else if (c === 'replace' && q !== null && have.id) plan.replace.push({ row: r, id: have.id, qty: q });
+      else plan.keep.push(r);
+    } else if (seen.has(k)) {
+      if (c === 'add') plan.add.push(r);
+      else plan.dupInDraft.push(r);
+    } else plan.add.push(r);
     seen.add(k);
-    if (rowQty(r.qty) === null && !have.has(k)) plan.noQty.push(r);
   }
+  plan.noQty = plan.add.filter(r => rowQty(r.qty) === null);
   return plan;
 }

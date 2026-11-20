@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 
 import {
   addPhotos, buildJobHeader, jobProgress, localDay, localTime, makeJob, newId, normalizeJobs, patchJob, PHOTOS_MAX, removePhoto,
-  reportFileName, sortJobs, upsertJob, validateJob, workForJob,
+  reportFileName, setPhotoKind, sortJobs, upsertJob, validateJob, workForJob,
 } from '../src/features/jobs/jobs-model.ts';
 import { addItem, addQuestion, buildWorkReport, removeItem, removeQuestion, seedWork, summarize } from '../src/features/work/work-model.ts';
 
@@ -33,6 +33,18 @@ assert.equal(j3.photos.length, 2);
 assert.equal(removePhoto(j3, 'a', t0).photos.map(p => p.id).join(), 'b');
 const many = addPhotos(j, Array.from({ length: PHOTOS_MAX + 5 }, (_, k) => ph('p' + k)), t0);
 assert.equal(many.photos.length, PHOTOS_MAX);
+// тип у миниатюры: фото объекта ↔ скрин заказа; пример скрина не переключается; исходник не меняется
+const t1 = new Date('2026-11-19T13:05:00Z');
+const sw = setPhotoKind(j3, 'a', 'order', t1);
+assert.deepEqual(sw.photos.map(p => p.kind), ['order', 'order']);
+assert.equal(j3.photos[0].kind, 'photo');
+assert.equal(sw.updatedAt, t1.toISOString());
+assert.deepEqual(setPhotoKind(sw, 'b', 'photo', t1).photos.map(p => p.kind), ['order', 'photo']);
+assert.equal(setPhotoKind(j3, 'a', 'photo', t1), j3, 'тот же тип — без изменений');
+assert.equal(setPhotoKind(j3, 'нет', 'order', t1), j3);
+const withSample = addPhotos(j, [{ ...ph('s', 'order'), sample: true }], t0);
+assert.equal(setPhotoKind(withSample, 's', 'photo', t1), withSample, 'пример скрина заказа остаётся скрином');
+assert.equal(jobProgress(sw, null).orders, 2);
 
 // 4. Список: upsert, сортировка, битые записи отбрасываются
 const other = makeJob({ title: 'Другой' }, new Date('2026-11-18T10:00:00Z'), 'job-0');
