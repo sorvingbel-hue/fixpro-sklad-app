@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 
 import {
-  groupWordsToLines, nameKey, parseOrderLines, planConfirm, QTY_CONF_MIN, rowQty, toRows, TRAIL_NOTE, COL_NOTE, orphanNumbers,
+  findExisting, OUT_NOTE, groupWordsToLines, nameKey, parseOrderLines, planConfirm, QTY_CONF_MIN, rowQty, toRows, TRAIL_NOTE, COL_NOTE, orphanNumbers,
 } from '../src/features/jobs/order-parse.ts';
 
 let n = 0;
@@ -45,8 +45,11 @@ test('«6 ea», «6 pcs», «6pcs», «25 ft» в конце', () => {
   assert.equal(a.qty, 6); assert.equal(a.unit, 'шт.'); assert.equal(a.name, 'Copper fitting 3/4');
   assert.equal(one('Wire nuts 10 pcs')[0].qty, 10);
   assert.equal(one('Wire nuts 10pcs')[0].qty, 10);
+  // ИЗМЕНЕНО (break-отчёт T5): длина в конце бывает частью названия («Line set 3/8 x 3/4 25 ft») — без колонки «Qty» флаг
   const [f] = one('Copper pipe 3/8 25 ft');
-  assert.equal(f.qty, 25); assert.equal(f.unit, 'фут'); assert.equal(f.name, 'Copper pipe 3/8');
+  assert.equal(f.qty, null); assert.deepEqual(f.flags, ['qty']); assert.equal(f.name, 'Copper pipe 3/8 25 ft');
+  const [g] = one('Copper pipe 3/8 Qty 25 ft');
+  assert.equal(g.qty, 25); assert.equal(g.unit, 'фут');
 });
 
 // ИЗМЕНЕНО (правка dot «Filter MERV 13»): раньше одиночное число в конце строки считалось количеством всегда.
@@ -394,6 +397,75 @@ test('повторы: «уже есть в сверке» — по умолча�
   assert.deepEqual(ch.dupExisting.map(r => r.key), ['a', 'b', 'c']);
   // «заменить» без количества в черновике — нечем заменять: остаётся как есть
   assert.deepEqual(planConfirm([R('x', 'Flex duct 8 in', '')], ex, { x: 'replace' }).keep.map(r => r.key), ['x']);
+});
+
+// ---------- Дефекты независимой проверки (break-отчёт): неверное количество без флага ----------
+const tri = r => r.items.map(i => [i.name, i.qty, i.flags.join()]);
+
+test('КРИТ: фото под углом — «Qty» отдельной строкой от «Description» (шапка расколота) — числа не количества', () => {
+  const lines = groupWordsToLines([
+    BW('Description', 60, 100), BW('Qty', 1000, 160),
+    ...row(260, 'Filter MERV 13', 6, 1010), ...row(360, 'Breaker 2 pole 30', 2, 1010), ...row(460, 'Supply boot 6x10', 1, 1010),
+  ]);
+  assert.deepEqual(tri(parseOrderLines(lines)), [['Filter MERV 13 6', null, 'qty'], ['Breaker 2 pole 30 2', null, 'qty'], ['Supply boot 6x10 1', null, 'qty']]);
+});
+
+test('КРИТ: строка перекошена — число в конце заметно выше слова перед ним — не доказано колонкой', () => {
+  const ws = [BW('Description', 60, 100), BW('Qty', 1000, 100), ...row(200, 'Filter MERV 13'), BW('6', 1010, 182), ...row(300, 'Disconnect 60A', 1, 1010)];
+  const r = parseOrderLines(groupWordsToLines(ws));
+  assert.deepEqual(tri(r), [['Filter MERV 13 6', null, 'qty'], ['Disconnect 60A', 1, '']]);
+});
+
+test('ВЫС: «100 pcs» в названии, число в колонке «Qty» — количество из колонки; без колонки — флаг', () => {
+  const lines = groupWordsToLines([BW('Description', 60, 100), BW('Qty', 1000, 100), ...row(200, 'Wire connectors 100 pcs', 2, 1010), ...row(300, 'Screws #8 50 pc', 4, 1010)]);
+  assert.deepEqual(tri(parseOrderLines(lines)), [['Wire connectors 100 pcs', 2, ''], ['Screws #8 50 pc', 4, '']]);
+  assert.deepEqual(tri(parseOrderLines([L('Zip ties 8 in 100 pcs 3')])), [['Zip ties 8 in 100 pcs 3', null, 'qty']]);
+});
+
+test('ВЫС: колонка «Unit» при пустой клетке «Qty» — «13 ea» не количество', () => {
+  const lines = groupWordsToLines([
+    BW('Description', 60, 100), BW('Qty', 1000, 100), BW('Unit', 1200, 100),
+    ...row(200, 'Filter MERV 13'), BW('ea', 1200, 200), ...row(300, 'Gas valve', 2, 1010), BW('ea', 1200, 300),
+  ]);
+  const r = parseOrderLines(lines);
+  assert.deepEqual(tri(r), [['Filter MERV 13', null, 'qty'], ['Gas valve', 2, '']]);
+  assert.equal(r.items[0].note, OUT_NOTE);
+});
+
+test('ВЫС: колонка «Qty» не действует после итогов и под другой шапкой («Labor Hours»)', () => {
+  const lines = groupWordsToLines([
+    BW('Description', 60, 100), BW('Qty', 1000, 100), ...row(200, 'Gas valve', 2, 1010),
+    BW('Total', 60, 300), BW('$120.00', 1000, 300),
+    ...row(400, 'Filter MERV 13', 2, 1010),
+    BW('Description', 60, 500), BW('Qty', 1000, 500), ...row(600, 'Condensate pump', 1, 1010),
+    BW('Labor', 60, 700), BW('Hours', 1000, 700), ...row(800, 'Install return grille', 2, 1010),
+  ]);
+  assert.deepEqual(tri(parseOrderLines(lines)), [['Gas valve', 2, ''], ['Filter MERV 13 2', null, 'qty'], ['Condensate pump', 1, ''], ['Install return grille 2', null, 'qty']]);
+});
+
+test('ВЫС: карточки «Название с размером» / «Qty: N» — количество из строки ниже, размер остаётся в названии', () => {
+  for (const [a, b, q] of [['Return grille 20 x 20', 'Qty: 6', 6], ['Pleated filter 16 x 25 x 1', 'Qty: 4', 4], ['Flex duct 8in x 25ft', 'Qty: 3', 3],
+    ['Line set 3/8 x 3/4 x 25 ft', 'Qty: 1', 1], ['Wire connectors 100 pcs', 'Qty: 2', 2]]) {
+    const r = parseOrderLines([L(a), L(b)]);
+    assert.deepEqual(tri(r), [[a, q, '']], `${a} / ${b}`);
+  }
+  // размер без строки «Qty» — не количество
+  assert.equal(one('Return grille 20 x 20')[0]?.qty ?? null, null);
+});
+
+test('ВЫС: второй скрин без шапки — строки с числом в конце узнаются как уже есть в сверке, не задваиваются', () => {
+  const ex = [{ id: 'a', name: 'Supply boot 6x10', qty: 4 }, { id: 'b', name: 'Breaker 2 pole 30', qty: 1 }];
+  const rows = toRows(parseOrderLines([L('Supply boot 6x10 4'), L('2 Breaker 2 pole 30 1'), L('Condensate pump 1')]).items, k => 'r' + k);
+  const plan = planConfirm(rows, ex);
+  assert.deepEqual(plan.dupExisting.map(r => r.key), ['r0', 'r1']);
+  assert.deepEqual(plan.add.map(r => r.name), ['Condensate pump 1']);
+  assert.equal(findExisting('2 Breaker 2 pole 30', ex)?.id, 'b', 'номер строки слева не мешает');
+  assert.equal(findExisting('Supply boot 6x10 4', ex), null, 'без флага «число в конце» название сравнивается целиком');
+  const ex2 = [{ id: 'f', name: 'Flex duct 8 in', qty: 3 }, { id: 'm', name: 'Filter MERV 13', qty: 2 }];
+  assert.equal(findExisting('Flex duct 8in', ex2)?.id, 'f');
+  assert.equal(findExisting('Flex duct 8 jn', ex2)?.id, 'f');
+  assert.equal(findExisting('Filter MERY 13', ex2)?.id, 'm');
+  assert.equal(findExisting('Filter MERV 11', ex2), null, 'другая цифра — другая позиция');
 });
 
 console.log(`order-parse: ${n} проверок пройдено`);

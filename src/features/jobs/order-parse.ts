@@ -164,17 +164,22 @@ function findQty(toks: Tok[]): Found | null {
   }
   // 2) «6 ea», «6 pcs», «6ea»; длина («25 ft») — только в конце строки
   for (let k = n - 1; k >= 0; k--) {
+    // «20 x 25 ft», «8in x 25ft» — размер, а не количество; «100 pcs … 2» — упаковка в названии, если дальше
+    // в строке есть ещё голое число (оно и есть кандидат в количество, ему нужно доказательство колонкой)
+    if (k > 0 && /^[x×]$/i.test(toks[k - 1].t)) continue;
+    const numAfter = (from: number) => toks.slice(from).some(x => /^(\d+|[x×]\d+|\d+[x×])$/i.test(trimPunct(x.t)) || KEYWORD.test(x.t));
     const glued = toks[k].t.match(/^(\d+(?:\.\d+)?)([A-Za-zА-Яа-я.]+)$/);
-    if (glued && unitOf(glued[2], k === n - 1) && !/x/i.test(glued[2])) {
+    if (glued && unitOf(glued[2], k === n - 1) && !/x/i.test(glued[2]) && !numAfter(k + 1)) {
       const q = readQty(glued[1], qc(toks[k], true), true)!;
-      return { qty: q, unit: unitOf(glued[2], true)!, name: toks.slice(0, k), qtyConf: qc(toks[k], true), kind: 'unit', tok: toks[k] };
+      // длина («25ft») бывает частью названия («Line set 3/8 x 3/4 25ft») — как голое число: нужно доказательство
+      return { qty: q, unit: unitOf(glued[2], true)!, name: toks.slice(0, k), qtyConf: qc(toks[k], true), kind: unitOf(glued[2], false) ? 'unit' : 'trail', tok: toks[k] };
     }
-    if (k + 1 < n && unitOf(toks[k + 1].t, k + 1 === n - 1)) {
+    if (k + 1 < n && unitOf(toks[k + 1].t, k + 1 === n - 1) && !numAfter(k + 2)) {
       const t = trimPunct(toks[k].t);
       // число перед единицей; буквы-«цифры» (S ea, O pcs) — тоже количество, но неуверенное
       if (/^\d+(\.\d+)?$/.test(t) || (QTY_LIKE.test(t) && t.length <= 3)) {
         const q = readQty(toks[k].t, qc(toks[k], false), true)!;
-        return { qty: q, unit: unitOf(toks[k + 1].t, true)!, name: [...toks.slice(0, k), ...toks.slice(k + 2)], qtyConf: qc(toks[k], false), kind: 'unit', tok: toks[k] };
+        return { qty: q, unit: unitOf(toks[k + 1].t, true)!, name: [...toks.slice(0, k), ...toks.slice(k + 2)], qtyConf: qc(toks[k], false), kind: unitOf(toks[k + 1].t, false) ? 'unit' : 'trail', tok: toks[k] };
       }
     }
   }
@@ -182,14 +187,15 @@ function findQty(toks: Tok[]): Found | null {
   const last = toks[n - 1], first = toks[0];
   // 3) «… x6», «… x 6», «… ×6» в конце строки
   const xm = last.t.match(/^[x×](\S+)$/i);
+  const dimBefore = (j: number) => j >= 0 && /^\d+(\.\d+)?["']?$/.test(toks[j].t); // «20 x 20», «16 x 25 x 1» — размер (под сомнением: флаг)
   if (xm && /\d|^[OolISB]+$/.test(xm[1])) return { qty: readQty(xm[1], qc(last, true), true)!, unit: 'шт.', name: toks.slice(0, -1), qtyConf: qc(last, true), kind: 'x', tok: last };
-  if (n >= 3 && /^[x×]$/i.test(toks[n - 2].t) && /^(\d+|[OolISB]{1,2})$/.test(trimPunct(last.t))) {
+  if (n >= 3 && /^[x×]$/i.test(toks[n - 2].t) && /^(\d+|[OolISB]{1,2})$/.test(trimPunct(last.t)) && !dimBefore(n - 3)) {
     return { qty: readQty(last.t, qc(last, false), true)!, unit: 'шт.', name: toks.slice(0, -2), qtyConf: qc(last, false), kind: 'x', tok: last };
   }
   // 4) «6 x Название», «6x Название», в конце строки «Название 6 x»
   const sm = first.t.match(/^(\S+?)[x×]$/i);
-  if (sm && n >= 2 && /\d/.test(sm[1])) return { qty: readQty(sm[1], qc(first, true), true)!, unit: 'шт.', name: toks.slice(1), qtyConf: qc(first, true), kind: 'x', tok: first };
-  if (n >= 3 && /^[x×]$/i.test(toks[1].t) && /\d/.test(first.t)) return { qty: readQty(first.t, qc(first, false), true)!, unit: 'шт.', name: toks.slice(2), qtyConf: qc(first, false), kind: 'x', tok: first };
+  if (sm && n >= 2 && /\d/.test(sm[1]) && !/^\d/.test(toks[1].t)) return { qty: readQty(sm[1], qc(first, true), true)!, unit: 'шт.', name: toks.slice(1), qtyConf: qc(first, true), kind: 'x', tok: first };
+  if (n >= 3 && /^[x×]$/i.test(toks[1].t) && /\d/.test(first.t) && !/^\d/.test(toks[2].t)) return { qty: readQty(first.t, qc(first, false), true)!, unit: 'шт.', name: toks.slice(2), qtyConf: qc(first, false), kind: 'x', tok: first };
   const em = last.t.match(/^(\S+?)[x×]$/i);
   if (em && n >= 2 && /^\d+$/.test(em[1])) return { qty: readQty(em[1], qc(last, true), true)!, unit: 'шт.', name: toks.slice(0, -1), qtyConf: qc(last, true), kind: 'x', tok: last };
   if (n >= 3 && /^[x×]$/i.test(last.t) && /\d/.test(toks[n - 2].t)) return { qty: readQty(toks[n - 2].t, qc(toks[n - 2], false), true)!, unit: 'шт.', name: toks.slice(0, -2), qtyConf: qc(toks[n - 2], false), kind: 'x', tok: toks[n - 2] };
@@ -260,29 +266,61 @@ function tokensOf(line: OcrLine, ref: DigitRef): Tok[] {
   return base.map(x => ({ ...x, t: x.t.replace(/×/g, 'x') })).filter(x => !/^[-–—|•·:]+$/.test(x.t));
 }
 
+const hgt = (b: OcrBox) => Math.max(1, b.y1 - b.y0);
 const WIDE_NOTE = 'цифра шире обычной — возможно, слились две цифры («11» как «1»)';
 export const TRAIL_NOTE = 'число в конце может быть частью названия — проверь';
+export const OUT_NOTE = 'число стоит не в колонке «Qty» — может быть частью названия, проверь';
 export const COL_NOTE = 'в колонке «Qty» не цифра (не прочиталась) — посмотри скрин';
 
 // ---------- Колонка количества: заголовок «Qty» и положение числа ----------
 // Заголовок: «Qty», «Items Qty», «Description Qty Price Total», «Наименование Кол-во» — без цифр, кроме слова
 // количества только слова шапки таблицы. box — рамка слова «Qty» (если известна), last — «Qty» последнее слово
 // после хотя бы одного слова шапки («Description Qty»: колонка названий слева, количества — справа).
-type Head = { line: number; box?: OcrBox; last: boolean };
+// solo — строка шапки из одного «Qty» (шапка расколота: на фото экрана под углом «Description» и «Qty» попадают
+// в разные строки, и колонка уезжает на строку) — такое «Qty» количество в колонке не доказывает
+// next — рамка следующего слова шапки справа от «Qty» («Price»): число ближе к нему — не в колонке «Qty»
+type Head = { line: number; box?: OcrBox; last: boolean; solo: boolean; next?: OcrBox };
 
 function qtyHeader(toks: Tok[], line: number): Head | null {
   if (!toks.length || toks.length > 8 || toks.some(x => /\d/.test(x.t))) return null;
   const k = toks.findIndex(x => KEYWORD.test(x.t));
   if (k < 0) return null;
   if (!toks.every((x, n) => { const w = trimPunct(x.t).replace(/[.#№]+$/, ''); return n === k || !w || HEAD_VOCAB.test(w); })) return null;
-  return { line, last: k > 0 && k === toks.length - 1, ...(toks[k].b ? { box: toks[k].b } : {}) };
+  const nx = toks[k].b ? toks.filter(x => x.b && x !== toks[k] && x.b.x0 > (toks[k].b!.x0 + toks[k].b!.x1) / 2).sort((a, b) => a.b!.x0 - b.b!.x0)[0]?.b : undefined;
+  return { line, last: k > 0 && k === toks.length - 1, solo: toks.length === 1, ...(toks[k].b ? { box: toks[k].b } : {}), ...(nx ? { next: nx } : {}) };
 }
 
-const hgt = (b: OcrBox) => Math.max(1, b.y1 - b.y0);
+// Шапка другой таблицы без колонки количества («Labor Hours», «Description Price») — колонка «Qty» выше
+// больше не действует
+const OTHER_HEAD = /^(labor|labour|hours?|hrs|time|work|tasks?|equipment|notes?|работа|работы|часы|час)$/i;
+function otherHeader(toks: Tok[]): boolean {
+  if (toks.length < 2 || toks.length > 6 || toks.some(x => /\d/.test(x.t) || KEYWORD.test(x.t))) return false;
+  const ws = toks.map(x => trimPunct(x.t).replace(/[.#№]+$/, '')).filter(Boolean);
+  return ws.length >= 2 && ws.every(w => HEAD_VOCAB.test(w) || OTHER_HEAD.test(w));
+}
+
+// Строка перекошена (фото экрана под углом): число в конце стоит по вертикали заметно выше или ниже слова
+// перед ним — оно могло прийти из соседней строки
+function skewed(toks: Tok[], num: Tok | undefined): boolean {
+  if (!num?.b) return false;
+  const k = toks.indexOf(num);
+  const prev = k > 0 ? toks.slice(0, k).reverse().find(x => x.b) : undefined;
+  if (!prev?.b) return false;
+  const cy = (b: OcrBox) => (b.y0 + b.y1) / 2;
+  return Math.abs(cy(num.b) - cy(prev.b)) > 0.3 * Math.max(hgt(num.b), hgt(prev.b));
+}
+
 // (б) число по горизонтали в колонке заголовка «Qty» (с допуском в высоту строки: число бывает прижато к краю)
 function inColumn(num: OcrBox, head: OcrBox): boolean {
   const tol = Math.max(hgt(num), hgt(head));
   return Math.min(num.x1, head.x1 + tol) > Math.max(num.x0, head.x0 - tol);
+}
+// (б) с учётом соседней колонки справа: тесные «Qty | Price» — число ближе к «Price», чем к «Qty», не в колонке «Qty»
+function inQtyCol(num: OcrBox, head: Head): boolean {
+  if (!head.box || !inColumn(num, head.box)) return false;
+  if (!head.next) return true;
+  const c = (b: OcrBox) => (b.x0 + b.x1) / 2;
+  return Math.abs(c(num) - c(head.box)) <= Math.abs(c(num) - c(head.next));
 }
 // (в) два числа соседних строк в одной колонке: совпадает правый или левый край, или заметно перекрываются
 function aligned(a: OcrBox, b: OcrBox): boolean {
@@ -327,8 +365,17 @@ export function parseOrderLines(lines: OcrLine[]): ParseResult {
       head = h;
       return;
     }
+    if (otherHeader(all)) {
+      if (pending) dropped.push({ raw: pending.raw, why: 'нет количества' });
+      dropped.push({ raw, why: 'заголовок' });
+      pending = null;
+      head = null;
+      return;
+    }
     const junk = JUNK.find(([re]) => re.test(raw));
     if (junk) {
+      // итоги: таблица закончилась, колонка «Qty» ниже не действует (ниже бывает другой раздел)
+      if (junk[1] === 'итог или оплата') head = null;
       if (pending) dropped.push({ raw: pending.raw, why: 'нет количества' });
       dropped.push({ raw, why: junk[1] });
       pending = null;
@@ -375,7 +422,7 @@ export function parseOrderLines(lines: OcrLine[]): ParseResult {
       }
       // «Flex duct 8» / «Qty 12»: число в конце строки выше было частью названия, количество — строкой ниже
       const prev = built[built.length - 1];
-      if (prev && prev.kind === 'trail' && prev.line === ln - 1) {
+      if (prev && prev.kind !== 'kw' && prev.kind !== 'col' && prev.line === ln - 1) {
         const it = build(found, prev.toks, `${prev.raw} / ${raw}`);
         if (it) { built[built.length - 1] = { item: it, kind: found.kind, toks: prev.toks, raw: it.raw, line: ln }; return; }
       }
@@ -387,7 +434,7 @@ export function parseOrderLines(lines: OcrLine[]): ParseResult {
     const it = build(found, found.name, raw);
     if (!it) { dropped.push({ raw, why: 'нет названия' }); return; }
     if (found.kind === 'col') it.note = COL_NOTE;
-    built.push({ item: it, kind: found.kind, toks, raw, line: ln, ...(found.kind === 'trail' ? { num: found.tok, head } : {}) });
+    built.push({ item: it, kind: found.kind, toks, raw, line: ln, ...(found.kind !== 'kw' && found.kind !== 'col' ? { num: found.tok, head } : {}) });
   });
   if (pending) dropped.push({ raw: (pending as { raw: string }).raw, why: 'нет количества' });
 
@@ -396,13 +443,14 @@ export function parseOrderLines(lines: OcrLine[]): ParseResult {
   const trails = built.filter(b => b.kind === 'trail');
   const proven = new Set<Built>();
   // (б) число стоит в колонке заголовка «Qty»
-  for (const b of trails) if (b.head?.box && b.num?.b && inColumn(b.num.b, b.head.box)) proven.add(b);
+  const colHead = (b: Built) => !!(b.head?.box && !b.head.solo && b.num?.b && !skewed(b.toks, b.num));
+  for (const b of trails) if (colHead(b) && inQtyCol(b.num!.b!, b.head!)) proven.add(b);
   // (в) колонка чисел: число выровнено с уже доказанным числом соседней строки (до 3 строк) под тем же заголовком
   for (let grew = true; grew;) {
     grew = false;
     for (const b of trails) {
-      if (proven.has(b) || !b.head?.box || !b.num?.b) continue;
-      const nb = b.num.b;
+      if (proven.has(b) || !colHead(b)) continue;
+      const nb = b.num!.b!;
       if ([...proven].some(p => p.head === b.head && Math.abs(p.line - b.line) <= 3 && aligned(p.num!.b!, nb))) { proven.add(b); grew = true; }
     }
   }
@@ -411,12 +459,19 @@ export function parseOrderLines(lines: OcrLine[]): ParseResult {
   const explicit = built.length - trails.length;
   const mostlyExplicit = explicit >= 2 && explicit > trails.length;
   for (const b of trails) if (b.head && (!b.head.box || !b.num?.b) && b.head.last && !mostlyExplicit) proven.add(b);
-  // не доказано: число остаётся в названии, количество пустое, флаг и причина
-  for (const b of trails) {
-    if (proven.has(b)) continue;
-    const { name, conf } = cleanName(b.toks);
+  const demote = (b: Built, note: string) => {
+    // «Filter MERV 13 ea»: слово единицы из своей колонки в название не берём
+    const nt = b.kind === 'unit' && b.toks.length > 1 && unitOf(b.toks[b.toks.length - 1].t, true) ? b.toks.slice(0, -1) : b.toks;
+    const { name, conf } = cleanName(nt);
     const flags: DraftFlag[] = ['qty', ...(conf < NAME_CONF_MIN ? ['name' as const] : [])];
-    b.item = { name, qty: null, unit: 'шт.', confidence: Math.round(Math.max(0, Math.min(100, conf))), flags, raw: b.raw, note: TRAIL_NOTE };
+    b.item = { name, qty: null, unit: 'шт.', confidence: Math.round(Math.max(0, Math.min(100, conf))), flags, raw: b.raw, note };
+  };
+  // не доказано: число остаётся в названии, количество пустое, флаг и причина
+  for (const b of trails) if (!proven.has(b)) demote(b, TRAIL_NOTE);
+  // «13 ea», «x2» в строке таблицы с колонкой «Qty», но число не в этой колонке (клетка Qty пустая, «ea» —
+  // колонка единиц) — не количество, а кусок названия
+  for (const b of built) {
+    if ((b.kind === 'unit' || b.kind === 'x') && b.head?.box && !b.head.solo && b.num?.b && !b.item.flags.includes('qty') && !inQtyCol(b.num.b, b.head)) demote(b, OUT_NOTE);
   }
 
   const items: DraftItem[] = [];
@@ -486,9 +541,29 @@ export type ExistingItem = { id: string; name: string; qty: number | null; actua
 // в сверке на количество из черновика, добавить отдельной позицией. Второй раз в черновике: 'keep' — не добавлять.
 export type DupChoice = 'keep' | 'replace' | 'add';
 
-export function findExisting(name: string, existing: ExistingItem[]): ExistingItem | null {
+// loose — строка с непрочитанным количеством (TRAIL_NOTE): число в конце её названия могло быть количеством
+// («Supply boot 6x10 4» со второго скрина без шапки = «Supply boot 6x10» в сверке). Номер строки слева
+// («2 Breaker 2 pole 30») не мешает узнать повтор.
+export function findExisting(name: string, existing: ExistingItem[], loose = false): ExistingItem | null {
   const k = nameKey(name);
-  return k ? existing.find(e => nameKey(e.name) === k) ?? null : null;
+  if (!k) return null;
+  const keys = [k];
+  const noNo = k.replace(/^\d{1,2} (?=[a-zа-я])/, '');
+  if (noNo !== k) keys.push(noNo);
+  if (loose) for (const x of [...keys]) { const t = x.replace(/ \d{1,3}$/, ''); if (t !== x && /[a-zа-я]/.test(t)) keys.push(t); }
+  for (const kk of keys) { const e = existing.find(x => nameKey(x.name) === kk); if (e) return e; }
+  // ошибки распознавания: пробел («8in» / «8 in») и одна буква вместо другой («MERY» / «MERV», «jn» / «in»);
+  // цифры не прощаем: «MERV 11» и «MERV 13» — разные позиции
+  const tight = (x: string) => x.replace(/ /g, '');
+  const near = (a: string, b: string) => {
+    if (a === b) return true;
+    if (a.length !== b.length || a.length < 6) return false;
+    let diff = -1;
+    for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) { if (diff >= 0) return false; diff = i; }
+    return /[a-zа-я]/.test(a[diff]) && /[a-zа-я]/.test(b[diff]);
+  };
+  for (const kk of keys) { const e = existing.find(x => near(tight(nameKey(x.name)), tight(kk))); if (e) return e; }
+  return null;
 }
 
 export type ConfirmPlan = {
@@ -512,7 +587,7 @@ export function planConfirm(rows: DraftRow[], existing: (ExistingItem | string)[
     const k = nameKey(r.name);
     if (!k) { plan.empty.push(r); continue; }
     const c = choice[r.key] ?? 'keep';
-    const have = findExisting(r.name, ex);
+    const have = findExisting(r.name, ex, r.note === TRAIL_NOTE);
     const q = rowQty(r.qty);
     if (have) {
       plan.dupExisting.push(r);

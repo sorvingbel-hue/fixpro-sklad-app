@@ -15,7 +15,7 @@ import {
   cancelOcr, keepOcrOffline, OCR_FIRST, OCR_MANUAL, OCR_READY, OCR_SUPPORTED, OCR_WHERE, ocrOfflineReady, recognizeOrder, type OcrStage,
 } from './order-ocr';
 import {
-  DRAFT_MAX, findExisting, FLAG_TEXT, nameKey, orphanNumbers, parseOrderLines, planConfirm, rowQty, toRows, type DraftRow, type Dropped, type DupChoice,
+  DRAFT_MAX, TRAIL_NOTE, findExisting, FLAG_TEXT, nameKey, orphanNumbers, parseOrderLines, planConfirm, rowQty, toRows, type DraftRow, type Dropped, type DupChoice,
   type ExistingItem,
 } from './order-parse';
 import { photoBlob, photoUrl } from './photo-store';
@@ -135,7 +135,10 @@ export function OrderOcrPanel({ orders, items, addSample, onConfirm, onDraft }: 
       const seen = new Set<string>();
       const rows: Row[] = toRows(parsed.items, k => `${base}-${k}`).map(x => {
         const k = nameKey(x.name);
-        const top = x.flags.length > 0 || !!findExisting(x.name, items) || (!!k && seen.has(k));
+        // повтор с тем же количеством, что в сверке, — без вопросов (свёрнут); с другим — спорный
+        const ex = findExisting(x.name, items, x.note === TRAIL_NOTE);
+        const same = !!ex && x.qty !== '' && rowQty(x.qty) === ex.qty;
+        const top = x.flags.length > 0 || (!!ex && !same) || (!!k && seen.has(k));
         seen.add(k);
         return { ...x, grp: top ? 'top' as const : 'rest' as const };
       });
@@ -224,7 +227,7 @@ export function OrderOcrPanel({ orders, items, addSample, onConfirm, onDraft }: 
     const seen = new Set<string>();
     return rows.map(r => {
       const k = nameKey(r.name);
-      const ex = findExisting(r.name, items);
+      const ex = findExisting(r.name, items, r.note === TRAIL_NOTE);
       const twice = !ex && !!k && seen.has(k);
       if (k) seen.add(k);
       return { ex, twice };
@@ -249,7 +252,11 @@ export function OrderOcrPanel({ orders, items, addSample, onConfirm, onDraft }: 
         <Field label="Название" value={r.name} multiline numberOfLines={2} style={[ui.input, s.nameInput]} onChangeText={x => patchRow(k, { name: x.replace(/\n/g, ' '), nameTouched: true })} testID={`ocr-name-${k}`} />
         <View style={s.cells}>
           <View style={s.cell}>
-            <Field label="Кол-во" value={r.qty} keyboardType="numeric" placeholder={qtyWarn ? 'впишите' : ''} onChangeText={x => patchRow(k, { qty: x })} testID={`ocr-qty-${k}`} />
+            <Field label="Кол-во" value={r.qty} keyboardType="numeric" placeholder={qtyWarn ? 'впишите' : ''} onChangeText={x => {
+              patchRow(k, { qty: x });
+              // строка уже в сверке: вписанное другое количество — это «заменить» (иначе правка молча потеряется)
+              if (d.ex && c !== 'add') { const v = rowQty(x); pick(v !== null && v !== d.ex.qty ? 'replace' : 'keep'); }
+            }} testID={`ocr-qty-${k}`} />
           </View>
           <View style={s.cell}>
             <Field label="Ед." value={r.unit} onChangeText={x => patchRow(k, { unit: x })} testID={`ocr-unit-${k}`} />
@@ -362,7 +369,7 @@ export function OrderOcrPanel({ orders, items, addSample, onConfirm, onDraft }: 
                 <Text style={s.moreTitle}>{moreOpen ? `▾  Ещё ${strok(rest.length)} без вопросов — свернуть` : `▸  Ещё ${strok(rest.length)} без вопросов — открыть и поправить`}</Text>
               </Pressable>
               {!moreOpen ? rest.map(({ r, k }) => (
-                <Text key={r.key} style={s.line} testID={`ocr-line-${k}`}>{`• ${r.name.trim() || '(без названия)'} — ${r.qty.trim() || '?'} ${r.unit}`}</Text>
+                <Text key={r.key} style={s.line} testID={`ocr-line-${k}`}>{`• ${r.name.trim() || '(без названия)'} — ${r.qty.trim() || '?'} ${r.unit}${dups[k]?.ex ? ' (уже в сверке, столько же)' : ''}`}</Text>
               )) : null}
               {rest.map(({ r, k }) => editor(r, k, dups[k], !moreOpen))}
             </View>
