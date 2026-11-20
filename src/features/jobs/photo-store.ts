@@ -21,7 +21,7 @@ export async function photoBlob(_id: string): Promise<Blob | null> {
   return null;
 }
 
-export async function photoUrl(_id: string, _size: 'thumb' | 'full'): Promise<string | null> {
+export async function photoUrl(_id: string, _size: 'thumb' | 'full' | 'ocr'): Promise<string | null> {
   return null;
 }
 

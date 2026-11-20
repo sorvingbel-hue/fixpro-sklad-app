@@ -297,6 +297,13 @@ export function addOrderItems(
   return { doc: added ? { ...d, items } : d, added, overLimit };
 }
 
+// «Заменить количество» (повторный разбор, второй скрин того же заказа): заказано = нужно = новое количество.
+// «В траке», отметка «есть/нет», место и заметка не меняются — недостача пересчитается сама.
+export function setOrderQty(d: WorkV03Doc, id: string, qty: number): WorkV03Doc {
+  if (!Number.isFinite(qty) || qty < 0 || !d.items.some(i => i.id === id)) return d;
+  return setItem(d, id, { required: qty, ordered: qty });
+}
+
 // Недостача: позиции, где по существующему verdict «Не хватает» (в траке меньше нужного или «Нет» отмечено вручную)
 export type Shortage = { id: string; name: string; need: number | null; actual: number | null; missing: number | null; unit: string; fromOrder: boolean; sample: boolean };
 

@@ -103,6 +103,13 @@ export function removePhoto(j: Job, photoId: string, now?: Date): Job {
   return touch({ ...j, photos: j.photos.filter(p => p.id !== photoId), removedPhotos: removed }, now);
 }
 
+// Тип фото: фото объекта ↔ скрин заказа (добавили не той кнопкой). Пример скрина заказа остаётся скрином.
+export function setPhotoKind(j: Job, photoId: string, kind: PhotoKind, now?: Date): Job {
+  const p = j.photos.find(x => x.id === photoId);
+  if (!p || p.kind === kind || p.sample) return j;
+  return touch({ ...j, photos: j.photos.map(x => (x.id === photoId ? { ...x, kind } : x)) }, now);
+}
+
 // Объекты списка: свежие сверху
 export const sortJobs = (jobs: Job[]): Job[] => [...jobs].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 

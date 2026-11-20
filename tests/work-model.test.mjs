@@ -126,5 +126,15 @@ console.log('work-model: все проверки пройдены');
   const shs = shortages(setItem(smp.doc, 's0', { actual: '4' }));
   assert.equal(shs[0].fromOrder, true); assert.equal(shs[0].sample, true);
   assert.equal(shortageText(shs[0]), 'Bar type supply registers 10x6 [ПРИМЕР]: заказано 6, в траке 4 — не хватает 2 шт.');
+  // исправленное количество в черновике (6 → 8) и «в траке 4» → недостача 4; «заменить количество» при повторном разборе
+  const { setOrderQty } = await import('../src/features/work/work-model.ts');
+  const c8 = addOrderItems(base, [{ name: 'Return grille 20x20', qty: 8, unit: 'шт.' }], k => 'g' + k);
+  const c8t = setItem(c8.doc, 'g0', { actual: '4' });
+  assert.equal(shortageText(shortages(c8t)[0]), 'Return grille 20x20: заказано 8, в траке 4 — не хватает 4 шт.');
+  const rep = setOrderQty(c8t, 'g0', 10);
+  assert.equal(rep.items[0].required, 10); assert.equal(rep.items[0].ordered, 10); assert.equal(rep.items[0].actual, '4', '«в траке» не тронуто');
+  assert.equal(shortages(rep)[0].missing, 6);
+  assert.equal(setOrderQty(c8t, 'нет-такой', 10), c8t);
+  assert.equal(setOrderQty(c8t, 'g0', -1), c8t);
   console.log('work-model: позиции со скрина и недостача — пройдено');
 }
