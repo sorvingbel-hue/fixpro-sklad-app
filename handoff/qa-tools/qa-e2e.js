@@ -1,6 +1,6 @@
 // Разрушающая проверка в приложении (iPhone 13, 390 px): вымышленные картинки qa_point/img(-sweep).
 // Запуск: node qa-e2e.js <URL> <папка вывода> <img> <img-sweep>   (ENGINE=webkit — WebKit)
-const pw = require('/opt/node-tools/node_modules/playwright');
+const pw = require('playwright');
 const fs = require('fs'), path = require('path');
 const ENGINE = process.env.ENGINE || 'chromium';
 const ONLY = process.env.ONLY || 'Q1 Q2 Q3 Q4 Q5 Q6';
@@ -169,7 +169,8 @@ function grade(rows, tr) {
   const msg4 = await text('ocr-msg');
   w = await work(); const it4 = w.items.find(i => i.name === 'Return grille 20x20');
   info('Q4б правка количества в строке-повторе без «Заменить»', `план: «${plan4}»; после: «${msg4.slice(0, 140)}»; в сверке заказано ${it4.ordered}, позиций ${w.items.length}`);
-  ok('Q4б без задвоения: «Return grille» одна, заказано 8, в траке 4', w.items.filter(i => i.name === 'Return grille 20x20').length === 1 && it4.ordered === 8, '');
+  // исправлено (дефект 4): вписанное другое количество в строке-повторе само выбирает «Заменить» — правка не теряется
+  ok('Q4б без задвоения, правка не потерялась: «Return grille» одна, заказано 10, план говорит «заменится»', w.items.filter(i => i.name === 'Return grille 20x20').length === 1 && it4.ordered === 10 && plan4.includes('заменится'), `заказано ${it4.ordered}`);
   // выбрать «Заменить количество» — недостача пересчитана
   r = await runOcr(idA2);
   const retd2 = r.rows.find(x => x.name === 'Return grille 20x20');
