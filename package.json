@@ -50,7 +50,8 @@
     "test:backup": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON tests/backup-model.test.mjs",
     "test:ocr-parse": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON tests/order-parse.test.mjs",
     "test:ocr": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON tests/order-ocr.test.mjs",
-    "ocr:assets": "node scripts/ocr-assets.mjs"
+    "ocr:assets": "node scripts/ocr-assets.mjs",
+    "test:field": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON tests/field-model.test.mjs"
   },
   "private": true
 }

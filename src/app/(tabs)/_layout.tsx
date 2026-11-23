@@ -1,4 +1,5 @@
-// Нижние вкладки: Смена · Установки · Законы · Склад · Ещё.
+// Нижние вкладки рабочей версии: Работы · Ещё. Обучение, Установки, Законы и Склад открываются из «Ещё»
+// экранами поверх вкладок (src/app/ref/*) — код не удалён.
 // Иконки: SF Symbols на iPhone, Material Symbols на Android и в браузере.
 import { Tabs } from 'expo-router';
 import { SymbolView, type AndroidSymbol, type SFSymbol } from 'expo-symbols';
@@ -34,10 +35,7 @@ export default function TabsLayout() {
         },
         sceneStyle: { backgroundColor: colors.bg },
       }}>
-      <Tabs.Screen name="index" options={{ title: t('tab.training'), tabBarIcon: icon('graduationcap.fill', 'school') }} />
-      <Tabs.Screen name="library" options={{ title: t('tab.library'), tabBarIcon: icon('wrench.and.screwdriver.fill', 'hvac') }} />
-      <Tabs.Screen name="laws" options={{ title: t('tab.laws'), tabBarIcon: icon('building.columns.fill', 'gavel') }} />
-      <Tabs.Screen name="sklad" options={{ title: t('tab.sklad'), tabBarIcon: icon('shippingbox.fill', 'inventory_2') }} />
+      <Tabs.Screen name="index" options={{ title: t('tab.work'), tabBarIcon: icon('wrench.and.screwdriver.fill', 'construction') }} />
       <Tabs.Screen name="more" options={{ title: t('tab.more'), tabBarIcon: icon('ellipsis.circle.fill', 'more_horiz') }} />
     </Tabs>
   );

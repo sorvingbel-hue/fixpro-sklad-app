@@ -177,7 +177,7 @@ export function verdict(i: V03Item): Verdict {
   return { kind: 'info', text: 'Не проверено / неполные данные' };
 }
 
-export type WorkSummary = { items: number; ok: number; bad: number; questionsOpen: number; checksDone: number; checksTotal: number; teamBlocked: number };
+export type WorkSummary = { items: number; ok: number; bad: number; unchecked: number; questionsOpen: number; checksDone: number; checksTotal: number; teamBlocked: number };
 
 export function summarize(d: WorkV03Doc): WorkSummary {
   const v = d.items.map(verdict);
@@ -186,6 +186,7 @@ export function summarize(d: WorkV03Doc): WorkSummary {
     items: d.items.length,
     ok: v.filter(x => x.kind === 'ok').length,
     bad: v.filter(x => x.kind === 'bad').length,
+    unchecked: d.items.filter(i => i.status === 'unknown').length,
     questionsOpen: d.questions.filter(q => !q.resolved).length,
     checksDone: all.filter(id => d.checks[id]).length,
     checksTotal: all.length,
@@ -325,4 +326,44 @@ export function shortageText(s: Shortage): string {
   const tag = s.sample ? ' [ПРИМЕР]' : '';
   if (s.missing === null) return `${s.name}${tag} — нет в траке (отмечено вручную)`;
   return `${s.name}${tag}: ${s.fromOrder ? 'заказано' : 'нужно'} ${s.need}, в траке ${s.actual} — не хватает ${s.missing} ${s.unit}`.trimEnd();
+}
+
+// ---------- Трак одной кнопкой (М2) ----------
+// «Всё загружено»: всё, что ещё не отмечено, — «есть», а «в траке» = сколько нужно (если число известно).
+// То, что уже отмечено «Нет», и вписанные руками количества не трогаем. Отмечать остаётся только то, чего нет.
+export function markAllLoaded(d: WorkV03Doc): WorkV03Doc {
+  let changed = false;
+  const items = d.items.map(i => {
+    if (i.status !== 'unknown') return i;
+    changed = true;
+    const need = quantity(i.required);
+    const actual = quantity(i.actual) !== null ? i.actual : need !== null ? need : i.actual;
+    const ordered = quantity(i.ordered) !== null ? i.ordered : need !== null ? need : i.ordered;
+    return { ...i, status: 'present' as const, actual, ordered };
+  });
+  return changed ? { ...d, items } : d;
+}
+
+// Отметить позицию «Нет в траке» / вернуть «Есть» одним нажатием
+export function setLoaded(d: WorkV03Doc, id: string, present: boolean): WorkV03Doc {
+  const i = d.items.find(x => x.id === id);
+  if (!i) return d;
+  if (!present) return setItem(d, id, { status: 'missing' });
+  const need = quantity(i.required);
+  return setItem(d, id, { status: 'present', actual: quantity(i.actual) !== null && (need === null || Number(i.actual) >= need) ? i.actual : need ?? i.actual, ordered: quantity(i.ordered) !== null ? i.ordered : need ?? i.ordered });
+}
+
+// Для отчёта: что не хватает (строки) и сколько не проверено
+export function shortageTextEn(s: Shortage): string {
+  const tag = s.sample ? ' [EXAMPLE]' : '';
+  if (s.missing === null) return `${s.name}${tag} — not on the truck`;
+  return `${s.name}${tag}: ${s.fromOrder ? 'ordered' : 'needed'} ${s.need}, on truck ${s.actual} — short ${s.missing}`;
+}
+
+export function truckForReport(d: WorkV03Doc, lang: 'en' | 'ru' = 'ru'): { items: number; missing: string[]; unchecked: number } {
+  return {
+    items: d.items.length,
+    missing: shortages(d).map(lang === 'en' ? shortageTextEn : shortageText),
+    unchecked: d.items.filter(i => i.status === 'unknown').length,
+  };
 }

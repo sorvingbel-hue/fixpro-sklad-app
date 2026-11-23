@@ -60,7 +60,7 @@ const seed = seedWork();
 assert.ok(validV03(seed), 'шаблон «Формана» проходит valid() пилота');
 assert.equal(seed.items.length, 7);
 assert.equal(seed.questions.length, 5);
-assert.deepEqual(summarize(seed), { items: 7, ok: 0, bad: 0, questionsOpen: 5, checksDone: 0, checksTotal: 8, teamBlocked: 0 });
+assert.deepEqual(summarize(seed), { items: 7, ok: 0, bad: 0, unchecked: 7, questionsOpen: 5, checksDone: 0, checksTotal: 8, teamBlocked: 0 });
 
 // --- 3. правки и отчёт
 let d = setItem(seed, 'registers', { ordered: '6', actual: '4', status: 'present', location: 'полка 2' });

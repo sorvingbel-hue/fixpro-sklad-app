@@ -21,11 +21,13 @@ import { useRevealScroll } from './use-reveal';
 
 type Seg = 'work' | 'steps' | 'practice' | 'ref';
 
-export default function TrainingScreen() {
+// mode 'work' — вкладка «Работы»: только объекты (рабочая версия, без обучалки).
+// mode 'learn' — «Обучение» из «Ещё»: Решения · Практика · Справка (код обучалки не тронут, просто убран с главного экрана).
+export default function TrainingScreen({ mode = 'work' }: { mode?: 'work' | 'learn' }) {
   const c = getTrainingContent(getLanguage());
   const { progress, loaded, saveState, save } = useTrainingProgress(c.lessons);
   const { viewport, scroll, content, reveal } = useRevealScroll();
-  const [seg, setSeg] = useState<Seg>('work');
+  const [seg, setSeg] = useState<Seg>(mode === 'work' ? 'work' : 'steps');
   const [reportMsg, setReportMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const segRef = useRef<ViewInstance>(null);
 
@@ -60,7 +62,7 @@ export default function TrainingScreen() {
         <ScrollView ref={scroll} keyboardShouldPersistTaps="handled">
           <View ref={content} collapsable={false} style={s.scroll}>
             <View style={s.column}>
-              <Text style={ui.h1} accessibilityRole="header">{t('training.title')}</Text>
+              <Text style={ui.h1} accessibilityRole="header">{mode === 'work' ? t('tab.work') : t('learn.title')}</Text>
 
               {seg !== 'work' ? <View style={s.hero}>
                 <Eyebrow>{c.header.eyebrow}</Eyebrow>
@@ -71,10 +73,9 @@ export default function TrainingScreen() {
                 </View>
               </View> : null}
 
-              <View ref={segRef} collapsable={false}>
+              {mode === 'learn' ? <View ref={segRef} collapsable={false}>
                 <Segments<Seg>
                   items={[
-                    { key: 'work', label: 'Объекты' },
                     { key: 'steps', label: c.ui.segSteps },
                     { key: 'practice', label: c.ui.segPractice },
                     { key: 'ref', label: c.ui.segRef },
@@ -82,7 +83,7 @@ export default function TrainingScreen() {
                   value={seg}
                   onChange={onSeg}
                 />
-              </View>
+              </View> : null}
 
               {seg === 'work' ? <JobsSection onTop={toTop} /> : null}
               {!loaded && seg !== 'work' ? <Small>{c.ui.loading}</Small> : null}

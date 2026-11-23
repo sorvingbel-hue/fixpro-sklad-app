@@ -1,5 +1,6 @@
 // Вкладка «Ещё»: код команды, язык, о приложении. (Импорт пилота v0.3 скрыт: тупик для тестеров.)
 import Constants from 'expo-constants';
+import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -12,10 +13,25 @@ import { colors, font, radius, space, TAP_MIN } from '@/lib/theme';
 export default function MoreScreen() {
   return (
     <Screen title={t('more.title')}>
+      <ToolsCard />
       <TeamCard />
       <LanguageCard />
       <AboutCard />
     </Screen>
+  );
+}
+
+// ---------- Справочники и обучение (убраны с нижней панели, код целиком на месте) ----------
+function ToolsCard() {
+  const go = (path: '/ref/training' | '/ref/library' | '/ref/laws' | '/ref/sklad') => () => router.push(path);
+  return (
+    <Card title="Справочники и обучение">
+      <Muted>На смене они не нужны, поэтому убраны с нижней панели. Всё на месте — открывается отсюда.</Muted>
+      <Button title="Обучение: решения, практика, справка" kind="secondary" onPress={go('/ref/training')} testID="more-training" />
+      <Button title="Библиотека установок" kind="secondary" onPress={go('/ref/library')} testID="more-library" />
+      <Button title="Законы Калифорнии" kind="secondary" onPress={go('/ref/laws')} testID="more-laws" />
+      <Button title="Склад" kind="secondary" onPress={go('/ref/sklad')} testID="more-sklad" />
+    </Card>
   );
 }
 

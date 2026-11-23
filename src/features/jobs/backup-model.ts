@@ -4,7 +4,7 @@
 // Фото — полный JPEG как data:URL; миниатюру после загрузки пересчитывает телефон.
 // Только типы: файл должен грузиться в Node без сборщика, поэтому строгая проверка «Работы» приходит параметром.
 import type { V03Item, V03Question, WorkV03Doc } from '../work/import-v03';
-import type { Job, JobPhoto } from './jobs-model';
+import type { Job, JobPhoto, Surprise } from './jobs-model';
 
 export const BACKUP_KIND = 'forman-backup';
 export const BACKUP_V = 1;
@@ -32,6 +32,9 @@ export type BackupFile = {
 export type Normalizers = {
   // строгая проверка «Работы» объекта jobId (work-model.ts → sanitizeWork); null — документ не берём
   work: (raw: unknown, jobId: string) => WorkV03Doc | null;
+  // фото по шагам и «Сюрпризы» (jobs-model.ts → isStepId, normalizeSurprises); без них эти поля из файла не берём
+  isStep?: (v: unknown) => v is string;
+  surprises?: (raw: unknown) => Surprise[];
 };
 
 // В копию идут только настоящие объекты: пример (ДЕМО) — вымышленный, его можно открыть заново
@@ -113,7 +116,7 @@ export const isPhotoDataUrl = (s: unknown): s is string => typeof s === 'string'
 const JOB_ID = /^[A-Za-z0-9_-]{1,100}$/;
 export const PHOTO_ID = /^[A-Za-z0-9_-]{1,100}$/;
 const EXTRA_KEY = /^[A-Za-z][A-Za-z0-9_]{0,40}$/;
-const KNOWN = new Set(['id', 'title', 'orderNo', 'note', 'createdAt', 'updatedAt', 'editedAt', 'photos', 'removedPhotos', 'example']);
+const KNOWN = new Set(['id', 'title', 'orderNo', 'note', 'createdAt', 'updatedAt', 'editedAt', 'photos', 'removedPhotos', 'example', 'surprises']);
 
 const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
 
@@ -128,7 +131,7 @@ const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v >=
 
 type Fix = (iso: string) => string;
 
-function sanitizeJob(raw: unknown, fix: Fix, cut: () => void): Job | null {
+function sanitizeJob(raw: unknown, fix: Fix, cut: () => void, nz: Normalizers): Job | null {
   if (!isObj(raw)) return null;
   const { id, title, orderNo, note, createdAt, updatedAt, editedAt, photos, removedPhotos } = raw;
   if (typeof id !== 'string' || !JOB_ID.test(id) || typeof title !== 'string') return null;
@@ -157,6 +160,7 @@ function sanitizeJob(raw: unknown, fix: Fix, cut: () => void): Job | null {
       bytes: num(p.bytes),
       name: typeof p.name === 'string' && p.name.trim() ? p.name.slice(0, FILE_LIMITS.photoName) : p.kind === 'order' ? 'скрин заказа' : 'фото',
       ...(p.sample === true ? { sample: true } : {}),
+      ...(p.kind === 'photo' && nz.isStep?.(p.step) ? { step: p.step as string } : {}),
     });
     if (list.length >= FILE_LIMITS.photosPerJob) break;
   }
@@ -182,6 +186,7 @@ function sanitizeJob(raw: unknown, fix: Fix, cut: () => void): Job | null {
     updatedAt: fix(updated),
     ...(edited ? { editedAt: fix(edited) } : {}),
     photos: list,
+    ...(raw.surprises !== undefined && nz.surprises ? { surprises: nz.surprises(raw.surprises).map(x => ({ ...x, createdAt: fix(x.createdAt), ...(x.sentAt ? { sentAt: fix(x.sentAt) } : {}) })) } : {}),
     ...(Array.isArray(removedPhotos)
       ? { removedPhotos: removedPhotos.filter((x): x is string => typeof x === 'string' && PHOTO_ID.test(x)).slice(-REMOVED_MAX) }
       : {}),
@@ -212,7 +217,7 @@ export function parseBackup(text: string, n: Normalizers, now: Date = new Date()
   let broken = 0, dupes = 0, trimmed = 0;
   const byId = new Map<string, Job>();
   for (const r of x.jobs) {
-    const j = sanitizeJob(r, fix, () => { trimmed++; });
+    const j = sanitizeJob(r, fix, () => { trimmed++; }, n);
     if (!j) { broken++; continue; }
     const have = byId.get(j.id);
     if (have) dupes++;

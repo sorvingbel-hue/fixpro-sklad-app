@@ -120,7 +120,7 @@ export function JobsSection({ onTop }: { onTop?: () => void }) {
                 <Text style={s.title}>{j.example ? `ДЕМО · ${j.title}` : j.title}</Text>
                 <Muted>{`${j.orderNo ? `Заказ ${j.orderNo} · ` : ''}начат ${day(j.createdAt)}`}</Muted>
                 <Text style={s.steps}>{p.steps.map(x => `${x.done ? '✓' : '○'} ${x.label}`).join('   ')}</Text>
-                <Muted>{`Фото ${p.photos} · скрин заказа ${p.orders} · сверка ${p.itemsOk}/${p.items} · этапы ${p.checksDone}/${p.checksTotal}`}</Muted>
+                <Muted>{`Скрин заказа ${p.orders} · трак ${p.itemsOk}/${p.items} · фото по шагам ${p.shotsDone}/${p.shotsTotal}${p.itemsBad ? ` · не хватает ${p.itemsBad}` : ''}`}</Muted>
                 <Button title="Продолжить" onPress={() => openJob(j.id)} disabled={loading} testID={`job-open-${j.id}`} />
               </Card>
             );
@@ -129,8 +129,8 @@ export function JobsSection({ onTop }: { onTop?: () => void }) {
         </>
       ) : (
         <Card title="Форман — помощник бригадира HVAC">
-          <Text style={s.lead}>Работа на сегодня: заказ, трак, фото, этапы и отчёт офису — в одном месте. Как это работает:</Text>
-          <Text style={s.list}>{'1. Создайте объект — хватит названия.\n2. Добавьте фото и скрин заказа.\n3. Сверьте заказ и трак, пройдите этапы.\n4. Откройте итог и скачайте отчёт.'}</Text>
+          <Text style={s.lead}>Работа на сегодня: заказ, трак, фото по шагам, сюрпризы и отчёт офису — в одном месте. Как это работает:</Text>
+          <Text style={s.list}>{'1. Создайте объект — хватит названия.\n2. Добавьте скрин заказа и нажмите «Всё загружено».\n3. Снимайте фото по шагам, сюрприз — сразу в офис.\n4. В конце — «Отправить отчёт с фото».'}</Text>
         </Card>
       )}
 

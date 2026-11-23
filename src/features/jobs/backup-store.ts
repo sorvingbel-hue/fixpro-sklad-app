@@ -12,6 +12,7 @@ import {
   realJobs, restoreNotes, restoreSummary, type MergePlan, type ParsedBackup,
 } from './backup-model';
 import { JOBS_KEY, loadJobs, loadWork, saveJobs, saveWork, workKey } from './jobs-store';
+import { isStepId, normalizeSurprises } from './jobs-model';
 import { canShareFiles, deletePhotos, photoDataUrls, PHOTOS_SUPPORTED, restorePhoto, shareFiles } from './photo-store';
 
 export const BACKUP_SUPPORTED = Platform.OS === 'web' && PHOTOS_SUPPORTED;
@@ -119,7 +120,7 @@ export async function restoreBackup(file: File, onProgress?: Progress): Promise<
   onProgress?.('Читаю файл копии…');
   let text: string;
   try { text = await file.text(); } catch { return { ok: false, text: 'Не удалось прочитать файл. Сохраните его в «Файлы» и выберите оттуда.' }; }
-  const parsed = parseBackup(text, { work: sanitizeWork });
+  const parsed = parseBackup(text, { work: sanitizeWork, isStep: isStepId, surprises: normalizeSurprises });
   if (!parsed.ok) return { ok: false, text: parsed.message };
   const inc = parsed.backup;
 

@@ -5,6 +5,8 @@ const ru = {
   'app.name': 'Форман',
 
   'tab.training': 'Смена',
+  'tab.work': 'Работы',
+  'learn.title': 'Обучение',
   'tab.library': 'Установки',
   'tab.laws': 'Законы',
   'tab.sklad': 'Склад',
