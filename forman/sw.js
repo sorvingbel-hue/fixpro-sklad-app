@@ -31,19 +31,20 @@
  *   })()));
  * Браузер проверяет sw.js мимо кэша (updateViaCache: 'none') при каждом открытии с сетью — выключится сразу.
  */
-const VERSION = 'f83c4959d3c5';
+const VERSION = '0508839b67b2';
 const PRECACHE = [
  "./",
- "_expo/static/js/web/__common-70fc31875a9f96331df1ccc59a058747.js",
+ "_expo/static/js/web/__common-57a79285f666a088973be4fc8f323330.js",
  "_expo/static/js/web/__expo-metro-runtime-ed4c1cfa6193d76fc294130e42bd1916.js",
- "_expo/static/js/web/_layout-8dc4e99c503f41e6ef596fc1330b8f50.js",
- "_expo/static/js/web/_layout-e4b3e3f1d5e33297d71b0e3417c10bd3.js",
- "_expo/static/js/web/entry-8c78f6b79d8847a34cd14226cdcb37b5.js",
- "_expo/static/js/web/index-16d04db84ed7d46185bf16cfb0d2a49b.js",
- "_expo/static/js/web/laws-7e2cfc427e663f1751f4de831a5001d3.js",
- "_expo/static/js/web/library-877a6175fbb5cd1001afc7253c161a38.js",
- "_expo/static/js/web/more-172f8fe94b1c17efcf1a391142ec63dd.js",
- "_expo/static/js/web/sklad-c90614c244c7692c001de792e5e61c40.js",
+ "_expo/static/js/web/_layout-73e327bc2b507eea3901399c0a8d826f.js",
+ "_expo/static/js/web/_layout-eda93954a86be13587720b6f6fe788d9.js",
+ "_expo/static/js/web/entry-53fde8c3608ab7b7eb384d3d7a0d9206.js",
+ "_expo/static/js/web/index-fdf139a2983f3939e6517a2cbc883867.js",
+ "_expo/static/js/web/laws-f2fdc286f033dd991432ff9f10630e58.js",
+ "_expo/static/js/web/library-ff069491491422d99bee0854ddbbff30.js",
+ "_expo/static/js/web/more-3adc3386df99c3bc9572efe5dbf8aae8.js",
+ "_expo/static/js/web/sklad-a0c06abf6750aabb12caf8b4925c78be.js",
+ "_expo/static/js/web/training-5811386c2e7a644ca34072ca5abc68fd.js",
  "apple-touch-icon.png",
  "assets/node_modules/@expo-google-fonts/material-symbols/400Regular/MaterialSymbols_400Regular.24d675e00675c1fa5b599e35b6ca17f8.ttf",
  "assets/node_modules/expo-router/assets/arrow_down.017bc6ba3fc25503e5eb5e53826d48a8.png",
@@ -67,11 +68,8 @@ const PRECACHE = [
  "favicon.ico",
  "icon-192.png",
  "icon-512.png",
- "laws.html",
- "library.html",
  "manifest.webmanifest",
- "more.html",
- "sklad.html"
+ "more.html"
 ];
 const OCR_FILES = {
  "ocr/primer-zakaza.png": "024fecc741c9",
